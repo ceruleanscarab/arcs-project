@@ -1310,72 +1310,116 @@ body.dark-mode .login-tab.active {
   font-size: 0.9rem;
 }
 
-.login-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 2px solid var(--line);
+/* Login panels — replace old tab system */
+.login-panel {
+  display: block;
 }
 
-.login-tab {
-  flex: 1;
-  padding: 12px;
-  border: none;
-  background: none;
+.login-panel.hidden {
+  display: none;
+}
+
+.login-panel h2 {
+  margin: 0 0 20px;
+  font-size: 1.3rem;
   font-weight: 700;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.2s;
-  border-bottom: 3px solid transparent;
-}
-
-.login-tab:hover {
   color: var(--ink);
 }
 
-.login-tab.active {
-  color: var(--blue);
-  border-bottom-color: var(--blue);
-}
-
-.login-form {
-  display: none;
-}
-
-.login-form.active {
+.login-panel label {
   display: block;
+  margin-bottom: 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555;
 }
 
-.login-form.hidden {
-  display: none;
-}
-
-.login-form h2 {
-  margin: 0 0 20px;
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.login-form label {
+.login-panel input,
+.login-panel select {
   display: block;
-  margin-bottom: 16px;
-}
-
-.login-form input,
-.login-form select {
   width: 100%;
-  padding: 12px;
-  border: 2px solid var(--line);
+  padding: 11px 14px;
+  margin-top: 4px;
+  border: 1.5px solid #ddd;
   border-radius: 8px;
   font-size: 1rem;
-  transition: all 0.2s;
+  background: #fafafa;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
 }
 
-.login-form input:focus,
-.login-form select:focus {
+.login-panel input:focus,
+.login-panel select:focus {
   outline: none;
   border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(18, 106, 164, 0.15);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(18, 106, 164, 0.12);
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 8px;
+  padding: 13px;
+  font-size: 1rem;
+}
+
+/* "Create an account" / "Forgot password?" links */
+.login-alt-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  font-size: 0.875rem;
+}
+
+.login-divider {
+  color: #ccc;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link-btn:hover {
+  color: var(--blue-dark, #0e5a8a);
+}
+
+/* Logout button in sidebar brand */
+.logout-btn {
+  margin-left: auto;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: transparent;
+  border: 1.5px solid var(--muted);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.logout-btn:hover {
+  border-color: var(--red, #e94560);
+  color: var(--red, #e94560);
+  background: rgba(233, 69, 96, 0.06);
+}
+
+/* Keep dark-mode overrides working with new panel class names */
+body.dark-mode .login-panel label { color: #444; }
+body.dark-mode .login-panel input,
+body.dark-mode .login-panel select {
+  background: #f5f5f5;
+  color: var(--ink);
+  border-color: #ccc;
 }
 
 .status-message {

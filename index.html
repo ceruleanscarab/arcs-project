@@ -24,45 +24,46 @@
   <body>
     <div id="loginScreen" class="login-screen">
       <div class="login-container">
+
         <div class="login-header">
           <img class="brand-logo" src="./arcs-logo.jpg" alt="ARCS! logo" />
           <h1>ARCS!</h1>
           <p>Comic Reading Tracker</p>
         </div>
-        
-        <div class="login-tabs">
-          <button class="login-tab active" data-tab="login">Login</button>
-          <button class="login-tab" data-tab="register">Register</button>
-          <button class="login-tab" data-tab="reset">Reset Password</button>
-        </div>
-        
-        <div class="login-form active" id="loginForm">
-          <h2>Welcome back</h2>
+
+        <!-- Login panel (default) -->
+        <div class="login-panel" id="loginForm">
           <label>
             Email
-            <input id="loginEmail" type="email" placeholder="name@example.com" />
+            <input id="loginEmail" type="email" placeholder="name@example.com" autocomplete="email" />
           </label>
           <label>
             Password
-            <input id="loginPassword" type="password" placeholder="Your password" />
+            <input id="loginPassword" type="password" placeholder="Your password" autocomplete="current-password" />
           </label>
-          <button id="loginButton" class="primary-action" type="button">Login</button>
+          <button id="loginButton" class="primary-action login-submit" type="button">Sign in</button>
           <p id="loginStatus" class="status-message"></p>
+          <div class="login-alt-links">
+            <button type="button" class="link-btn" id="showRegister">Create an account</button>
+            <span class="login-divider">·</span>
+            <button type="button" class="link-btn" id="showReset">Forgot password?</button>
+          </div>
         </div>
-        
-        <div class="login-form hidden" id="registerForm">
+
+        <!-- Register panel (hidden by default) -->
+        <div class="login-panel hidden" id="registerForm">
           <h2>Create account</h2>
           <label>
             Display name
-            <input id="registerName" type="text" placeholder="Your reader name" />
+            <input id="registerName" type="text" placeholder="Your reader name" autocomplete="name" />
           </label>
           <label>
             Email
-            <input id="registerEmail" type="email" placeholder="name@example.com" />
+            <input id="registerEmail" type="email" placeholder="name@example.com" autocomplete="email" />
           </label>
           <label>
             Password
-            <input id="registerPassword" type="password" placeholder="Create a password" />
+            <input id="registerPassword" type="password" placeholder="Create a password" autocomplete="new-password" />
           </label>
           <label>
             Publisher preference
@@ -76,42 +77,36 @@
           <label>
             Avatar
             <div class="avatar-selector">
-              <button type="button" class="avatar-option active" data-avatar="Doom-6.png">
-                <img src="Doom-6.png" alt="Doom" />
-              </button>
-              <button type="button" class="avatar-option" data-avatar="HawkEye-5.png">
-                <img src="HawkEye-5.png" alt="Hawk Eye" />
-              </button>
-              <button type="button" class="avatar-option" data-avatar="Hulk-5.png">
-                <img src="Hulk-5.png" alt="Hulk" />
-              </button>
-              <button type="button" class="avatar-option" data-avatar="IronMan-5.png">
-                <img src="IronMan-5.png" alt="Iron Man" />
-              </button>
-              <button type="button" class="avatar-option" data-avatar="Rocket-5.png">
-                <img src="Rocket-5.png" alt="Rocket" />
-              </button>
-              <button type="button" class="avatar-option" data-avatar="Spiderman-5.png">
-                <img src="Spiderman-5.png" alt="Spiderman" />
-              </button>
-              <button type="button" class="avatar-option" data-avatar="Thing-5.png">
-                <img src="Thing-5.png" alt="Thing" />
-              </button>
+              <button type="button" class="avatar-option active" data-avatar="Doom-6.png"><img src="Doom-6.png" alt="Doom" /></button>
+              <button type="button" class="avatar-option" data-avatar="HawkEye-5.png"><img src="HawkEye-5.png" alt="Hawk Eye" /></button>
+              <button type="button" class="avatar-option" data-avatar="Hulk-5.png"><img src="Hulk-5.png" alt="Hulk" /></button>
+              <button type="button" class="avatar-option" data-avatar="IronMan-5.png"><img src="IronMan-5.png" alt="Iron Man" /></button>
+              <button type="button" class="avatar-option" data-avatar="Rocket-5.png"><img src="Rocket-5.png" alt="Rocket" /></button>
+              <button type="button" class="avatar-option" data-avatar="Spiderman-5.png"><img src="Spiderman-5.png" alt="Spiderman" /></button>
+              <button type="button" class="avatar-option" data-avatar="Thing-5.png"><img src="Thing-5.png" alt="Thing" /></button>
             </div>
           </label>
-          <button id="registerButton" class="primary-action" type="button">Create Account</button>
+          <button id="registerButton" class="primary-action login-submit" type="button">Create Account</button>
           <p id="registerStatus" class="status-message"></p>
+          <div class="login-alt-links">
+            <button type="button" class="link-btn" id="showLogin">Back to sign in</button>
+          </div>
         </div>
-        
-        <div class="login-form hidden" id="resetForm">
+
+        <!-- Reset password panel (hidden by default) -->
+        <div class="login-panel hidden" id="resetForm">
           <h2>Reset password</h2>
           <label>
             Email
-            <input id="resetEmail" type="email" placeholder="name@example.com" />
+            <input id="resetEmail" type="email" placeholder="name@example.com" autocomplete="email" />
           </label>
-          <button id="resetButton" class="primary-action" type="button">Send Reset Link</button>
+          <button id="resetButton" class="primary-action login-submit" type="button">Send Reset Link</button>
           <p id="resetStatus" class="status-message"></p>
+          <div class="login-alt-links">
+            <button type="button" class="link-btn" id="showLoginFromReset">Back to sign in</button>
+          </div>
         </div>
+
       </div>
     </div>
 
@@ -123,6 +118,7 @@
             <h1>ARCS!</h1>
             <p>Reading orders and progress</p>
           </div>
+          <button id="logoutButton" class="logout-btn" type="button" title="Sign out" style="display:none">Sign out</button>
         </div>
 
         <label class="search-label" for="searchInput">Find a storyline or arc</label>

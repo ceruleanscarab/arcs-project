@@ -3701,11 +3701,28 @@ loginTabs.forEach((tab) => {
 // Login screen avatar selection
 document.querySelectorAll("#registerForm .avatar-option").forEach((option) => {
   option.addEventListener("click", () => {
-    document.querySelectorAll("#registerForm .avatar-option").forEach((opt) => {
-      opt.classList.remove("active");
-    });
+    document.querySelectorAll("#registerForm .avatar-option").forEach((opt) => opt.classList.remove("active"));
     option.classList.add("active");
   });
+});
+
+// Login screen panel switching
+function showLoginPanel(id) {
+  document.querySelectorAll(".login-panel").forEach(p => p.classList.add("hidden"));
+  const panel = document.getElementById(id);
+  if (panel) panel.classList.remove("hidden");
+}
+document.getElementById("showRegister")?.addEventListener("click", () => showLoginPanel("registerForm"));
+document.getElementById("showReset")?.addEventListener("click", () => showLoginPanel("resetForm"));
+document.getElementById("showLogin")?.addEventListener("click", () => showLoginPanel("loginForm"));
+document.getElementById("showLoginFromReset")?.addEventListener("click", () => showLoginPanel("loginForm"));
+
+// Allow Enter key to submit login
+elements.loginPassword?.addEventListener("keydown", e => {
+  if (e.key === "Enter") elements.loginButton?.click();
+});
+elements.loginEmail?.addEventListener("keydown", e => {
+  if (e.key === "Enter") elements.loginButton?.click();
 });
 
 // Login button
