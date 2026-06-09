@@ -11,10 +11,10 @@ if not exist "%NODE%" (
   exit /b 1
 )
 
-echo Starting ARCS! at http://127.0.0.1:4178
+echo Starting ARCS! at http://127.0.0.1:4177
 echo Keep this window open while using Komga sync.
 echo.
-start "" "http://127.0.0.1:4178"
+start "" "http://127.0.0.1:4177"
 "%NODE%" "%APP_DIR%server.js"
 echo.
 echo ARCS! server stopped.
