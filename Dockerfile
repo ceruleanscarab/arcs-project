@@ -18,18 +18,19 @@ COPY scripts/ ./scripts/
 # Copy logo if it exists
 COPY arcs-logo.jpg* ./
 
-# Persistent data lives outside the image
-RUN mkdir -p /data
 ENV DATA_DIR=/data
 ENV NODE_ENV=production
-ENV PORT=4177
+ENV PORT=4178
 
-# Run as non-root for security
+# Create non-root user, own both /app and /data before switching user
+# so the volume mount at /data is writable when the container starts
 RUN addgroup -g 1001 -S arcs && \
     adduser -S arcs -u 1001 -G arcs && \
-    chown -R arcs:arcs /app
+    chown -R arcs:arcs /app && \
+    mkdir -p /data && chown -R arcs:arcs /data
+
 USER arcs
 
-EXPOSE 4177
+EXPOSE 4178
 
 CMD ["node", "server.js"]
