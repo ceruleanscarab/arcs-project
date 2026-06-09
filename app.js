@@ -766,7 +766,10 @@ async function comicVineJsonp(path, params) {
 
   const response = await fetch(`${window.location.origin}/api/comicvine-proxy`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${state.token}`
+    },
     body: JSON.stringify({
       apiKey: state.comicVineKey,
       path,
@@ -998,7 +1001,10 @@ async function gcdRequest(path) {
   try {
     const response = await fetch(`${window.location.origin}/api/gcd-proxy`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.token}`
+      },
       body: JSON.stringify({ path })
     });
     if (!response.ok) {
@@ -1014,7 +1020,10 @@ async function marvelRequest(path) {
   try {
     const response = await fetch(`${window.location.origin}/api/marvel-proxy`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.token}`
+      },
       body: JSON.stringify({ path })
     });
     if (!response.ok) {
@@ -1283,7 +1292,10 @@ async function komgaRequest(path, options = {}) {
   try {
     response = await fetch(`${window.location.origin}/api/komga-proxy`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.token}`
+      },
       body: JSON.stringify({
         baseUrl,
         username: state.komga.username,
@@ -1507,7 +1519,10 @@ async function mylarRequest(path, options = {}) {
   try {
     response = await fetch(`${window.location.origin}/api/mylar-proxy`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.token}`
+      },
       body: JSON.stringify({
         baseUrl,
         apiKey: state.mylar.apiKey,
@@ -3661,42 +3676,6 @@ elements.saveCustomOrder.addEventListener("click", () => {
   autoSyncMylarForStory(story.id);
 });
 
-// Login screen tab switching
-const loginTabs = document.querySelectorAll(".login-tab");
-console.log("Found login tabs:", loginTabs.length);
-loginTabs.forEach((tab) => {
-  tab.addEventListener("click", () => {
-    const targetTab = tab.dataset.tab;
-    console.log("Tab clicked:", targetTab);
-    
-    // Update tab styles
-    document.querySelectorAll(".login-tab").forEach((t) => {
-      t.classList.toggle("active", t.dataset.tab === targetTab);
-    });
-    
-    // Show/hide forms
-    const allForms = document.querySelectorAll(".login-form");
-    console.log("Found forms:", allForms.length);
-    allForms.forEach((form) => {
-      form.classList.remove("active");
-      form.classList.add("hidden");
-    });
-    
-    const targetForm = document.querySelector(`#${targetTab}Form`);
-    console.log("Target form:", targetForm);
-    if (targetForm) {
-      targetForm.classList.remove("hidden");
-      targetForm.classList.add("active");
-      console.log("Form classes after showing:", targetForm.className);
-    }
-    
-    // Clear status messages
-    document.querySelectorAll(".status-message").forEach((msg) => {
-      msg.textContent = "";
-      msg.classList.remove("success", "error");
-    });
-  });
-});
 
 // Login screen avatar selection
 document.querySelectorAll("#registerForm .avatar-option").forEach((option) => {
@@ -3875,7 +3854,7 @@ if (elements.resetButton) {
     elements.resetStatus.classList.remove("success", "error");
     
     try {
-      const response = await fetch("${window.location.origin}/api/profile/reset-password", {
+      const response = await fetch(`${window.location.origin}/api/profile/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })

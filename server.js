@@ -106,6 +106,23 @@ function verifyToken(token) {
   }
 }
 
+// Extract and verify the Bearer token from a request.
+// Returns the decoded payload on success, or sends 401 and returns null.
+function requireAuth(request, response) {
+  const auth = request.headers["authorization"] || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) {
+    send(response, 401, JSON.stringify({ error: "Authentication required." }));
+    return null;
+  }
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    send(response, 401, JSON.stringify({ error: "Invalid or expired token. Please log in again." }));
+    return null;
+  }
+  return decoded;
+}
+
 // Helper function to generate sync name
 function generateSyncName() {
   return `arcs-${crypto.randomBytes(8).toString("hex")}`;
@@ -155,12 +172,23 @@ function privateProxyAllowed() {
 }
 
 function isPrivateOrLocalHost(hostname) {
-  const normalized = String(hostname || "").toLowerCase();
-  if (["localhost", "127.0.0.1", "::1"].includes(normalized)) return true;
-  if (normalized.startsWith("192.168.")) return true;
-  if (normalized.startsWith("10.")) return true;
-  const match = normalized.match(/^172\.(\d+)\./);
-  return Boolean(match && Number(match[1]) >= 16 && Number(match[1]) <= 31);
+  const h = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, ""); // strip IPv6 brackets
+  // Loopback / localhost
+  if (["localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1", "0.0.0.0"].includes(h)) return true;
+  // IPv4-mapped IPv6 loopback  ::ffff:127.x.x.x
+  if (/^::ffff:127\./.test(h)) return true;
+  // RFC-1918 private ranges
+  if (h.startsWith("192.168.")) return true;
+  if (h.startsWith("10.")) return true;
+  const m172 = h.match(/^172\.(\d+)\./);
+  if (m172 && Number(m172[1]) >= 16 && Number(m172[1]) <= 31) return true;
+  // Link-local (169.254.x.x) — covers AWS/GCP/Azure IMDS at 169.254.169.254
+  if (h.startsWith("169.254.")) return true;
+  // IPv6 link-local fe80::/10
+  if (h.startsWith("fe80:")) return true;
+  // IPv6 unique-local fc00::/7
+  if (/^f[cd]/i.test(h)) return true;
+  return false;
 }
 
 // Sanitize filename to prevent path traversal
@@ -603,6 +631,12 @@ async function handleProfileRequest(request, response) {
 
   if (path === "/api/profile/register" && request.method === "POST") {
     try {
+      const clientIp = request.socket.remoteAddress || "unknown";
+      if (!checkRateLimit(`register:${clientIp}`)) {
+        send(response, 429, JSON.stringify({ error: "Too many registration attempts. Please try again later." }));
+        return;
+      }
+
       const payload = await readJson(request);
       const { email, password, name, publisher, avatar } = payload;
 
@@ -713,6 +747,12 @@ async function handleProfileRequest(request, response) {
         return;
       }
 
+      // Guard against unbounded payload — serialize and check size before saving
+      const serialized = JSON.stringify(data);
+      if (serialized.length > 512 * 1024) { // 512 KB per-profile limit
+        send(response, 413, JSON.stringify({ error: "Profile data too large (max 512 KB)." }));
+        return;
+      }
       profile.data = data;
       profile.updatedAt = new Date().toISOString();
       saveProfiles();
@@ -748,8 +788,9 @@ async function handleProfileRequest(request, response) {
       }
 
       const profile = profiles[email];
+      // Always return 200 regardless of whether the email exists — prevents account enumeration
       if (!profile) {
-        send(response, 404, JSON.stringify({ error: "Email not found." }));
+        send(response, 200, JSON.stringify({ success: true, message: "If that email is registered, a reset link has been sent." }));
         return;
       }
 
@@ -1224,7 +1265,9 @@ function serveStatic(request, response) {
   const requestedPath = requestUrl.pathname === "/" ? "/index.html" : requestUrl.pathname;
   const filePath = path.normalize(path.join(root, requestedPath));
 
-  if (!filePath.startsWith(root)) {
+  // Use root + sep to prevent "startsWith" matching a sibling directory
+  // e.g. root="/app" must not match "/app-secrets/..."
+  if (!filePath.startsWith(root + path.sep) && filePath !== root) {
     send(response, 403, "Forbidden", "text/plain");
     return;
   }
@@ -1242,6 +1285,18 @@ const server = http.createServer((request, response) => {
   if (request.method === "OPTIONS") {
     send(response, 204, "");
     return;
+  }
+
+  // All proxy and cover endpoints require a valid JWT
+  if (
+    request.url.startsWith("/api/komga-proxy") ||
+    request.url.startsWith("/api/comicvine-proxy") ||
+    request.url.startsWith("/api/gcd-proxy") ||
+    request.url.startsWith("/api/marvel-proxy") ||
+    request.url.startsWith("/api/mylar-proxy") ||
+    request.url.startsWith("/api/covers")
+  ) {
+    if (!requireAuth(request, response)) return;
   }
 
   if (request.url.startsWith("/api/komga-proxy")) {
