@@ -4,7 +4,7 @@
 //   - API calls (/api/*, /proxy/*, cover images from external URLs) → Network-first
 //   - Everything else → Network with cache fallback
 
-const CACHE_NAME = "arcs-v1";
+const CACHE_NAME = "arcs-v2";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -49,22 +49,17 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // App shell: cache-first, fall back to network
+  // App shell: network-first, fall back to cache.
+  // This ensures updates are picked up immediately on every load.
   event.respondWith(
-    caches.match(request).then(cached => {
-      if (cached) return cached;
-      return fetch(request).then(response => {
-        // Cache successful same-origin GET responses
-        if (
-          response.ok &&
-          request.method === "GET" &&
-          url.origin === self.location.origin
-        ) {
+    fetch(request)
+      .then(response => {
+        if (response.ok && request.method === "GET") {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
         }
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(request))
   );
 });
