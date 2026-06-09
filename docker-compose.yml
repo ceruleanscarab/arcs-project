@@ -24,12 +24,12 @@ services:
 
       # HTTP entrypoint — just forward to HTTPS
       - "traefik.http.routers.arcs-http.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.arcs-http.entrypoints=web"
+      - "traefik.http.routers.arcs-http.entrypoints=web-external,web-internal"
       - "traefik.http.routers.arcs-http.middlewares=redirect-to-https@file"
 
       # HTTPS router — use Deployrr's external entrypoint and dns-cloudflare resolver
       - "traefik.http.routers.arcs.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.arcs.entrypoints=websecure-external"
+      - "traefik.http.routers.arcs.entrypoints=websecure-internal,websecure-external"
       - "traefik.http.routers.arcs.tls=true"
       - "traefik.http.routers.arcs.tls.certresolver=dns-cloudflare"
 
