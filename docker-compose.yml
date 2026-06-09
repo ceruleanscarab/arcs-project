@@ -1,0 +1,27 @@
+﻿version: '3.8'
+
+services:
+  arcs:
+    build: .
+    container_name: arcs-comic-tracker
+    ports:
+      - "4177:4177"
+    environment:
+      - PORT=4177
+      - NODE_ENV=production
+      - DATA_DIR=/data
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env before starting ARCS}
+      - ALLOW_PRIVATE_PROXY=${ALLOW_PRIVATE_PROXY:-false}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-http://localhost:4177}
+    volumes:
+      - arcs-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4177"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  arcs-data:

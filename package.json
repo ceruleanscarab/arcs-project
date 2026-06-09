@@ -1,0 +1,26 @@
+{
+  "name": "arcs-comic-tracker",
+  "version": "1.0.0",
+  "description": "ARCS! Comic Reading Tracker",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "prepare:android": "node scripts/prepare-mobile-assets.js",
+    "android:add": "npm run prepare:android && npx cap add android",
+    "android:sync": "npm run prepare:android && npx cap sync android",
+    "android:open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

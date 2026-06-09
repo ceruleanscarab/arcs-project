@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ARCS! Comic Reading Tracker</title>
+
+    <!-- PWA manifest + theme -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1a1a2e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ARCS!" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+
+    <!-- Open Graph / share preview -->
+    <meta property="og:title" content="ARCS! Comic Reading Tracker" />
+    <meta property="og:description" content="Track your comic story arcs, ratings, and collection progress." />
+    <meta property="og:type" content="website" />
+
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="loginScreen" class="login-screen">
+      <div class="login-container">
+        <div class="login-header">
+          <img class="brand-logo" src="./arcs-logo.jpg" alt="ARCS! logo" />
+          <h1>ARCS!</h1>
+          <p>Comic Reading Tracker</p>
+        </div>
+        
+        <div class="login-tabs">
+          <button class="login-tab active" data-tab="login">Login</button>
+          <button class="login-tab" data-tab="register">Register</button>
+          <button class="login-tab" data-tab="reset">Reset Password</button>
+        </div>
+        
+        <div class="login-form active" id="loginForm">
+          <h2>Welcome back</h2>
+          <label>
+            Email
+            <input id="loginEmail" type="email" placeholder="name@example.com" />
+          </label>
+          <label>
+            Password
+            <input id="loginPassword" type="password" placeholder="Your password" />
+          </label>
+          <button id="loginButton" class="primary-action" type="button">Login</button>
+          <p id="loginStatus" class="status-message"></p>
+        </div>
+        
+        <div class="login-form hidden" id="registerForm">
+          <h2>Create account</h2>
+          <label>
+            Display name
+            <input id="registerName" type="text" placeholder="Your reader name" />
+          </label>
+          <label>
+            Email
+            <input id="registerEmail" type="email" placeholder="name@example.com" />
+          </label>
+          <label>
+            Password
+            <input id="registerPassword" type="password" placeholder="Create a password" />
+          </label>
+          <label>
+            Publisher preference
+            <select id="registerPublisher">
+              <option value="Either">Either</option>
+              <option value="Marvel">Marvel</option>
+              <option value="DC">DC</option>
+              <option value="Indie">Indie</option>
+            </select>
+          </label>
+          <label>
+            Avatar
+            <div class="avatar-selector">
+              <button type="button" class="avatar-option active" data-avatar="Doom-6.png">
+                <img src="Doom-6.png" alt="Doom" />
+              </button>
+              <button type="button" class="avatar-option" data-avatar="HawkEye-5.png">
+                <img src="HawkEye-5.png" alt="Hawk Eye" />
+              </button>
+              <button type="button" class="avatar-option" data-avatar="Hulk-5.png">
+                <img src="Hulk-5.png" alt="Hulk" />
+              </button>
+              <button type="button" class="avatar-option" data-avatar="IronMan-5.png">
+                <img src="IronMan-5.png" alt="Iron Man" />
+              </button>
+              <button type="button" class="avatar-option" data-avatar="Rocket-5.png">
+                <img src="Rocket-5.png" alt="Rocket" />
+              </button>
+              <button type="button" class="avatar-option" data-avatar="Spiderman-5.png">
+                <img src="Spiderman-5.png" alt="Spiderman" />
+              </button>
+              <button type="button" class="avatar-option" data-avatar="Thing-5.png">
+                <img src="Thing-5.png" alt="Thing" />
+              </button>
+            </div>
+          </label>
+          <button id="registerButton" class="primary-action" type="button">Create Account</button>
+          <p id="registerStatus" class="status-message"></p>
+        </div>
+        
+        <div class="login-form hidden" id="resetForm">
+          <h2>Reset password</h2>
+          <label>
+            Email
+            <input id="resetEmail" type="email" placeholder="name@example.com" />
+          </label>
+          <button id="resetButton" class="primary-action" type="button">Send Reset Link</button>
+          <p id="resetStatus" class="status-message"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-shell hidden" id="appShell">
+      <aside class="sidebar" aria-label="Storyline lookup">
+        <div class="brand" id="brandLogo">
+          <img class="brand-logo" src="./arcs-logo.jpg" alt="ARCS! logo" />
+          <div>
+            <h1>ARCS!</h1>
+            <p>Reading orders and progress</p>
+          </div>
+        </div>
+
+        <label class="search-label" for="searchInput">Find a storyline or arc</label>
+        <div class="search-box">
+          <input id="searchInput" type="search" placeholder="Search Civil War, Batman, X-Men..." autocomplete="off" />
+          <button id="clearSearch" type="button" title="Clear search" aria-label="Clear search">x</button>
+        </div>
+
+        <div class="filter-row" aria-label="Storyline filters">
+          <button class="chip active" type="button" data-filter="all">All</button>
+          <button class="chip" type="button" data-filter="marvel">Marvel</button>
+          <button class="chip" type="button" data-filter="dc">DC</button>
+          <button class="chip" type="button" data-filter="custom">Custom</button>
+        </div>
+
+        <div class="side-actions">
+          <button id="resetProgress" class="secondary-action" type="button">Reset progress</button>
+          <button id="logoutButton" class="secondary-action" type="button" style="display: none;">Logout</button>
+        </div>
+
+        <nav class="page-tabs" aria-label="App pages">
+          <button class="page-tab active" type="button" data-page="myarcs">My Arcs</button>
+          <button class="page-tab" type="button" data-page="reader">Reader</button>
+          <button class="page-tab" type="button" data-page="collection">Collection</button>
+          <button class="page-tab" type="button" data-page="lookup">Lookup</button>
+          <button class="page-tab" type="button" data-page="custom">Custom</button>
+          <button class="page-tab" type="button" data-page="profile">Profile</button>
+        </nav>
+
+        <div id="storyList" class="story-list" aria-live="polite"></div>
+      </aside>
+
+      <main class="content">
+        <div id="readerPage" class="page-view">
+          <section class="overview" aria-label="Reading dashboard">
+            <div>
+              <p class="eyebrow">Current path</p>
+              <h2 id="storyTitle">Select a storyline</h2>
+              <p id="storyMeta" class="muted">Choose an arc to see its reading order.</p>
+            </div>
+            <div class="stats-grid" aria-label="Progress summary">
+              <div class="stat">
+                <span id="readCount">0</span>
+                <p>Read</p>
+              </div>
+              <div class="stat">
+                <span id="ownedCount">0</span>
+                <p>Marked</p>
+              </div>
+              <div class="stat">
+                <span id="leftCount">0</span>
+                <p>Left</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="reader-panel" aria-label="Reading order">
+            <div class="toolbar">
+              <div>
+                <h3>Reading order</h3>
+                <p id="readingHint">Check off each issue as you go.</p>
+              </div>
+              <div class="toolbar-actions">
+                <button id="loadCovers" type="button">Load covers</button>
+                <button id="addArcToCollection" type="button">Add to Collection</button>
+                <button id="syncKomga" type="button">Sync Komga</button>
+                <button id="markAllRead" type="button">Mark all read</button>
+                <button id="clearStoryProgress" type="button">Clear arc</button>
+              </div>
+            </div>
+
+            <div id="komgaSyncIndicator" class="sync-indicator idle" role="status" aria-live="polite">
+              <span></span>
+              <p>Komga sync not run yet.</p>
+            </div>
+
+            <div class="progress-track-wrap" aria-hidden="true">
+              <div class="progress-track">
+                <div id="progressFill"></div>
+              </div>
+              <span id="progressPct" class="progress-pct">0%</span>
+            </div>
+
+            <ol id="issueList" class="issue-list"></ol>
+          </section>
+        </div>
+
+        <!-- Issue detail panel (slide-in overlay) -->
+        <div id="issueDetailOverlay" class="issue-detail-overlay hidden" aria-modal="true" role="dialog">
+          <div id="issueDetailPanel" class="issue-detail-panel">
+            <button id="issueDetailClose" class="issue-detail-close" type="button" aria-label="Close">✕</button>
+            <div id="issueDetailContent" class="issue-detail-content">
+              <div class="issue-detail-loading"><span class="spinner"></span> Loading…</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="lookupPage" class="page-view hidden">
+          <section class="overview" aria-label="Data source lookup overview">
+            <div>
+              <p class="eyebrow">Import arcs</p>
+              <h2>Comic data lookup</h2>
+              <p class="muted">Search across Comic Vine, Grand Comics Database, and Marvel API to find and import issue lists into ARCS!.</p>
+            </div>
+          </section>
+
+          <section class="reader-panel" aria-label="Data source reading order lookup">
+            <div class="toolbar">
+              <div>
+                <h3>Unified search</h3>
+                <p id="vineLookupStatus">Search all data sources to find story arcs and series.</p>
+              </div>
+            </div>
+            <div class="vine-lookup-row">
+              <input id="vineArcSearch" type="search" placeholder="Search story arcs or series, e.g. Civil War, Batman, Avengers..." autocomplete="off" />
+              <button id="searchVineArcs" type="button">Search all</button>
+            </div>
+            <div id="vineArcResults" class="vine-results" aria-live="polite"></div>
+          </section>
+        </div>
+
+        <div id="myArcsPage" class="page-view hidden">
+          <section class="overview" aria-label="My arcs overview">
+            <div>
+              <p class="eyebrow">Your progress</p>
+              <h2>My Arcs</h2>
+              <p class="muted">Track your reading progress across all storylines.</p>
+            </div>
+          </section>
+
+          <section class="reader-panel" aria-label="All storylines progress">
+            <div class="toolbar">
+              <div>
+                <h3>All storylines</h3>
+                <p class="muted">Your active reading list</p>
+              </div>
+              <button id="showArchived" class="secondary-action" type="button">Show Archived</button>
+            </div>
+            <div id="allStorylinesList" class="story-list"></div>
+          </section>
+        </div>
+
+        <div id="collectionPage" class="page-view hidden">
+          <section class="overview" aria-label="Collection overview">
+            <div>
+              <p class="eyebrow">Physical comics</p>
+              <h2>My Collection</h2>
+              <p class="muted">Track which physical issues you've read.</p>
+            </div>
+            <div id="collectionStats" class="collection-stats"></div>
+          </section>
+
+          <section class="reader-panel" aria-label="Add to collection">
+            <div class="toolbar">
+              <div>
+                <h3>Add an issue</h3>
+                <p class="muted">Search for an issue or type a title manually</p>
+              </div>
+            </div>
+            <div class="collection-search-wrap">
+              <div class="collection-search-row">
+                <input id="collectionAddInput" type="text" placeholder="e.g. Amazing Spider-Man #1" autocomplete="off" />
+                <button id="collectionAddButton" class="primary-action" type="button">Add</button>
+              </div>
+              <div id="collectionSearchResults" class="collection-search-results hidden"></div>
+            </div>
+          </section>
+
+          <section class="reader-panel" aria-label="Collection list">
+            <div class="toolbar">
+              <div>
+                <h3>Issues</h3>
+                <p class="muted">All tracked physical issues</p>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div class="filter-group">
+                  <button class="filter-btn active" type="button" data-collection-filter="all">All</button>
+                  <button class="filter-btn" type="button" data-collection-filter="read">Read</button>
+                  <button class="filter-btn" type="button" data-collection-filter="unread">Unread</button>
+                </div>
+                <button id="exportCollectionCsv" class="export-csv-btn" type="button" title="Export collection as CSV">⬇ CSV</button>
+                <button id="exportArcsCsv" class="export-csv-btn" type="button" title="Export arc progress as CSV">⬇ Arc Progress CSV</button>
+              </div>
+            </div>
+            <div id="collectionList" class="issue-list" aria-live="polite"></div>
+          </section>
+        </div>
+
+        <div id="customPage" class="page-view hidden">
+          <section class="overview" aria-label="Custom reading order overview">
+            <div>
+              <p class="eyebrow">Your orders</p>
+              <h2>Custom order</h2>
+              <p class="muted">Build your own storyline when you already know the reading list.</p>
+            </div>
+          </section>
+
+          <section id="customPanel" class="custom-panel" aria-label="Add custom reading order">
+            <div class="panel-heading">
+              <h3>Add a custom reading order</h3>
+              <button id="closeCustomForm" type="button" title="Back to reader" aria-label="Back to reader">x</button>
+            </div>
+            <div class="form-grid">
+              <label>
+                Storyline title
+                <input id="customTitle" type="text" placeholder="Example: Knightfall" />
+              </label>
+              <label>
+                Publisher
+                <select id="customPublisher">
+                  <option value="custom">Custom</option>
+                  <option value="marvel">Marvel</option>
+                  <option value="dc">DC</option>
+                </select>
+              </label>
+              <label class="wide">
+                Issues in order
+                <textarea id="customIssues" rows="5" placeholder="One issue per line, e.g. Batman #491"></textarea>
+              </label>
+            </div>
+            <button id="saveCustomOrder" class="primary-action" type="button">Save order</button>
+            <div class="sync-actions">
+              <button id="exportCbl" class="secondary-action" type="button">Export CBL</button>
+              <button id="importCbl" class="secondary-action" type="button">Import CBL</button>
+            </div>
+            <input id="cblFileInput" type="file" accept=".cbl,.xml" style="display: none;" />
+          </section>
+        </div>
+
+        <div id="profilePage" class="page-view hidden">
+          <section class="profile-panel" aria-label="User profile">
+            <div class="profile-heading">
+              <div>
+                <p class="eyebrow">Account</p>
+                <h2>Reader profile</h2>
+                <p class="muted">Save your reader identity and move your progress between devices.</p>
+              </div>
+              <div id="profileAvatar" class="profile-avatar" aria-hidden="true">
+                <img src="Doom-6.png" alt="Profile avatar" />
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <label>
+                Avatar
+                <div class="avatar-selector">
+                  <button type="button" class="avatar-option" data-avatar="Doom-6.png">
+                    <img src="Doom-6.png" alt="Doom" />
+                  </button>
+                  <button type="button" class="avatar-option" data-avatar="HawkEye-5.png">
+                    <img src="HawkEye-5.png" alt="Hawk Eye" />
+                  </button>
+                  <button type="button" class="avatar-option" data-avatar="Hulk-5.png">
+                    <img src="Hulk-5.png" alt="Hulk" />
+                  </button>
+                  <button type="button" class="avatar-option" data-avatar="IronMan-5.png">
+                    <img src="IronMan-5.png" alt="Iron Man" />
+                  </button>
+                  <button type="button" class="avatar-option" data-avatar="Rocket-5.png">
+                    <img src="Rocket-5.png" alt="Rocket" />
+                  </button>
+                  <button type="button" class="avatar-option" data-avatar="Spiderman-5.png">
+                    <img src="Spiderman-5.png" alt="Spiderman" />
+                  </button>
+                  <button type="button" class="avatar-option" data-avatar="Thing-5.png">
+                    <img src="Thing-5.png" alt="Thing" />
+                  </button>
+                </div>
+              </label>
+            </div>
+
+            <div class="form-grid">
+              <label>
+                Display name
+                <input id="profileName" type="text" placeholder="Your reader name" />
+              </label>
+              <label>
+                Email
+                <input id="profileEmail" type="email" placeholder="name@example.com" />
+              </label>
+              <label>
+                Password
+                <input id="profilePassword" type="password" placeholder="Create a password" />
+              </label>
+              <label>
+                Favorite publisher
+                <select id="profilePublisher">
+                  <option value="Either">Either</option>
+                  <option value="Marvel">Marvel</option>
+                  <option value="DC">DC</option>
+                  <option value="Indie">Indie</option>
+                </select>
+              </label>
+            </div>
+            <div class="sync-actions">
+              <button id="registerProfile" class="primary-action" type="button">Register & Save</button>
+              <button id="loginProfile" class="secondary-action" type="button">Login</button>
+              <button id="logoutProfile" class="secondary-action" type="button" style="display: none;">Logout</button>
+              <button id="saveToServer" class="secondary-action" type="button">Save to Server</button>
+            </div>
+          </section>
+
+          <section class="profile-panel" aria-label="Comic data source">
+            <div class="panel-heading">
+              <div>
+                <h3>Cover data source</h3>
+                <p class="muted">Choose between Comic Vine (requires API key), Grand Comics Database (no key required), or Marvel API (Marvel only).</p>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>
+                Data source
+                <select id="dataSource">
+                  <option value="comicvine">Comic Vine</option>
+                  <option value="gcd">Grand Comics Database</option>
+                  <option value="marvel">Marvel API</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="profile-panel" aria-label="Comic Vine settings">
+            <div class="panel-heading">
+              <div>
+                <h3>Comic Vine API key</h3>
+                <p id="apiStatus">Required when using Comic Vine as data source.</p>
+              </div>
+            </div>
+            <div class="api-key-row profile-api-row">
+              <input id="comicVineKey" type="password" placeholder="Paste Comic Vine API key" autocomplete="off" />
+              <button id="saveComicVineKey" type="button">Save</button>
+            </div>
+          </section>
+
+          <section class="profile-panel" aria-label="Komga settings">
+            <div class="panel-heading">
+              <div>
+                <h3>Komga tracking</h3>
+                <p id="komgaStatus">Connect your Komga server to sync read progress.</p>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label class="wide">
+                Server URL
+                <input id="komgaUrl" type="url" placeholder="https://your-server.example.com" />
+              </label>
+              <label>
+                Username
+                <input id="komgaUsername" type="text" placeholder="Komga username" autocomplete="off" />
+              </label>
+              <label>
+                Password
+                <input id="komgaPassword" type="password" placeholder="Komga password" autocomplete="off" />
+              </label>
+            </div>
+            <label class="inline-check">
+              <input id="showKomgaPassword" type="checkbox" />
+              Show password
+            </label>
+            <div class="sync-actions">
+              <button id="saveKomga" class="primary-action" type="button">Save Komga</button>
+              <button id="testKomga" class="secondary-action" type="button">Test connection</button>
+            </div>
+          </section>
+
+          <section class="profile-panel" aria-label="Mylar3 settings">
+            <div class="panel-heading">
+              <div>
+                <h3>Mylar3 tracking</h3>
+                <p id="mylarStatus">Connect your Mylar3 server to sync read progress and reading lists.</p>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label class="wide">
+                Server URL
+                <input id="mylarUrl" type="url" placeholder="http://192.168.1.x:8090" />
+              </label>
+              <label>
+                API Key
+                <input id="mylarApiKey" type="password" placeholder="Mylar3 API key" autocomplete="off" />
+              </label>
+              <label>
+                HTTP Username <span class="field-optional">(if HTTP auth is enabled)</span>
+                <input id="mylarHttpUser" type="text" placeholder="Optional" autocomplete="off" />
+              </label>
+              <label>
+                HTTP Password <span class="field-optional">(if HTTP auth is enabled)</span>
+                <input id="mylarHttpPass" type="password" placeholder="Optional" autocomplete="off" />
+              </label>
+            </div>
+            <div class="sync-actions">
+              <button id="saveMylar" class="primary-action" type="button">Save Mylar3</button>
+              <button id="testMylar" class="secondary-action" type="button">Test connection</button>
+            </div>
+            <div class="sync-actions">
+              <button id="syncMylar" class="secondary-action" type="button">Sync Progress</button>
+              <button id="importMylarList" class="secondary-action" type="button">Import Reading List</button>
+              <button id="exportMylarList" class="secondary-action" type="button">Export Reading List</button>
+            </div>
+          </section>
+
+          <section class="profile-panel" aria-label="Cross-device progress">
+            <div class="panel-heading">
+              <div>
+                <h3>Cross-device progress</h3>
+                <p class="muted">Export your profile on this device, then import it on another copy of ARCS!.</p>
+              </div>
+            </div>
+            <div class="sync-actions">
+              <button id="exportProfile" class="secondary-action" type="button">Export sync profile</button>
+              <button id="importProfile" class="secondary-action" type="button">Import sync profile</button>
+            </div>
+            <textarea id="syncPayload" rows="8" placeholder="Your exported sync profile appears here. Paste one here to import."></textarea>
+            <p id="syncStatus" class="muted">No sync action yet.</p>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <template id="storyCardTemplate">
+      <button class="story-card" type="button">
+        <span class="story-card-title"></span>
+        <span class="story-card-meta"></span>
+        <span class="mini-progress"><span></span></span>
+      </button>
+    </template>
+
+    <!-- Toast notification -->
+    <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="./app.js"></script>
+    <script>
+      // Register the PWA service worker
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js")
+            .then(reg => console.log("[SW] registered, scope:", reg.scope))
+            .catch(err => console.warn("[SW] registration failed:", err));
+        });
+      }
+    </script>
+  </body>
+</html>
