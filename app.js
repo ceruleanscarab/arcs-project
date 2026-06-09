@@ -159,6 +159,12 @@ function loadState() {
       state = { ...state, ...saved };
     }
     state.darkMode = true;
+
+    // Token is never persisted — always reset auth on page load.
+    // The user must log in again each session.
+    state.token = "";
+    state.isAuthenticated = false;
+
     state.comicVineKey = sessionStorage.getItem(comicVineSessionKey) || "";
     const sessionKomga = JSON.parse(sessionStorage.getItem(komgaSessionKey) || "null");
     if (sessionKomga) {
@@ -2908,15 +2914,15 @@ function setupFormValidation() {
 }
 
 function render() {
-  console.log("Render called, isAuthenticated:", state.isAuthenticated);
-  if (elements.loginScreen) {
-    elements.loginScreen.classList.add("hidden");
-    console.log("Login screen hidden:", elements.loginScreen.classList.contains("hidden"));
+  // Gate the entire app behind authentication
+  if (!state.isAuthenticated || !state.token) {
+    if (elements.loginScreen) elements.loginScreen.classList.remove("hidden");
+    if (elements.appShell)    elements.appShell.classList.add("hidden");
+    return;
   }
-  if (elements.appShell) {
-    elements.appShell.classList.remove("hidden");
-    console.log("App shell hidden:", elements.appShell.classList.contains("hidden"));
-  }
+
+  if (elements.loginScreen) elements.loginScreen.classList.add("hidden");
+  if (elements.appShell)    elements.appShell.classList.remove("hidden");
   
   state.darkMode = true;
   document.body.classList.add("dark-mode");
@@ -3722,16 +3728,14 @@ if (elements.loginButton) {
     
     try {
       console.log("Sending login request to server");
-      const response = await fetch("${window.location.origin}/api/profile/login", {
+      const response = await fetch(`${window.location.origin}/api/profile/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
       });
-      
-      console.log("Response status:", response.status);
+
       const data = await response.json();
-      console.log("Response data:", data);
-      
+
       if (data.success) {
         state.profile = {
           name: data.profile.name,
@@ -3742,22 +3746,25 @@ if (elements.loginButton) {
         };
         state.isAuthenticated = true;
         state.sessionEmail = email;
-        
+
+        // Store JWT token in memory only (not localStorage)
+        if (data.token) {
+          state.token = data.token;
+        }
+
         // Load saved data from server
         if (data.profile.data) {
           state.progress = data.profile.data.progress || {};
           state.customStorylines = data.profile.data.customStorylines || [];
           state.covers = data.profile.data.covers || {};
           state.komgaMatches = data.profile.data.komgaMatches || {};
+          state.mylarMatches = data.profile.data.mylarMatches || {};
         }
-        
+
         saveState();
-        elements.loginStatus.textContent = "Login successful!";
+        elements.loginStatus.textContent = `Welcome back, ${data.profile.name}!`;
         elements.loginStatus.classList.add("success");
-        
-        setTimeout(() => {
-          render();
-        }, 500);
+        render();
       } else {
         elements.loginStatus.textContent = data.error || "Login failed.";
         elements.loginStatus.classList.add("error");
@@ -3795,14 +3802,14 @@ if (elements.registerButton) {
     elements.registerStatus.classList.remove("success", "error");
     
     try {
-      const response = await fetch("${window.location.origin}/api/profile/register", {
+      const response = await fetch(`${window.location.origin}/api/profile/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password, publisher, avatar })
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         state.profile = {
           name,
@@ -3813,13 +3820,13 @@ if (elements.registerButton) {
         };
         state.isAuthenticated = true;
         state.sessionEmail = email;
+        if (data.token) {
+          state.token = data.token;
+        }
         saveState();
-        elements.registerStatus.textContent = `Account created! Your sync name: ${data.syncName}`;
+        elements.registerStatus.textContent = `Account created! Welcome, ${name}!`;
         elements.registerStatus.classList.add("success");
-        
-        setTimeout(() => {
-          render();
-        }, 500);
+        render();
       } else {
         elements.registerStatus.textContent = data.error || "Registration failed.";
         elements.registerStatus.classList.add("error");
