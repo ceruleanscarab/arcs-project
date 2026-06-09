@@ -1,41 +1,35 @@
-﻿# Use Node.js LTS as base image
-FROM node:18-alpine
+FROM node:20-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files (if they exist)
+# Install production dependencies
 COPY package*.json ./
+RUN npm install --omit=dev
 
-# Install dependencies (if package.json exists)
-RUN if [ -f package.json ]; then npm install; fi
-
-# Copy application files
+# Copy all app source files
 COPY server.js ./
-COPY index.html ./
 COPY app.js ./
+COPY index.html ./
 COPY styles.css ./
-COPY arcs-logo.jpg ./
+COPY manifest.json ./
+COPY sw.js ./
+COPY icons/ ./icons/
+COPY scripts/ ./scripts/
+# Copy logo if it exists
+COPY arcs-logo.jpg* ./
 
-# Create non-root user for security
+# Persistent data lives outside the image
+RUN mkdir -p /data
+ENV DATA_DIR=/data
+ENV NODE_ENV=production
+ENV PORT=4177
+
+# Run as non-root for security
 RUN addgroup -g 1001 -S arcs && \
-    adduser -S arcs -u 1001 -G arcs
-
-# Change ownership of app directory
-RUN chown -R arcs:arcs /app
-
-# Switch to non-root user
+    adduser -S arcs -u 1001 -G arcs && \
+    chown -R arcs:arcs /app
 USER arcs
 
-# Expose the default port
 EXPOSE 4177
 
-# Set environment variables
-ENV PORT=4177
-ENV NODE_ENV=production
-ENV DATA_DIR=/data
-
-# Start the server
 CMD ["node", "server.js"]
-
-
