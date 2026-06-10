@@ -1285,14 +1285,17 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  // All proxy and cover endpoints require a valid JWT
+  // All proxy and cover write/fetch endpoints require a valid JWT.
+  // /api/covers/image/ is exempt — img tags can't send auth headers and
+  // the files are hashed public images with no sensitive content.
   if (
     request.url.startsWith("/api/komga-proxy") ||
     request.url.startsWith("/api/comicvine-proxy") ||
     request.url.startsWith("/api/gcd-proxy") ||
     request.url.startsWith("/api/marvel-proxy") ||
     request.url.startsWith("/api/mylar-proxy") ||
-    request.url.startsWith("/api/covers")
+    request.url.startsWith("/api/covers/fetch") ||
+    request.url.startsWith("/api/covers/check")
   ) {
     if (!requireAuth(request, response)) return;
   }
