@@ -614,6 +614,20 @@ function syncCollectionToArcProgress(issueTitle, read) {
   });
 }
 
+// Find the best available cover image for an issue title by scanning all storylines
+function coverImageForTitle(issueTitle) {
+  const key = normalizeIssueKey(issueTitle);
+  for (const story of allStorylines()) {
+    for (let i = 0; i < story.issues.length; i++) {
+      if (normalizeIssueKey(story.issues[i]) === key) {
+        const cover = coverFor(story.id, i);
+        if (cover?.image) return state.imageCache[cover.image] || cover.image;
+      }
+    }
+  }
+  return null;
+}
+
 function renderCollection() {
   if (!elements.collectionList) return;
   const entries = Object.values(state.collection);
@@ -643,8 +657,9 @@ function renderCollection() {
     const key = normalizeIssueKey(entry.title);
     const li = document.createElement("li");
     li.className = "issue-item";
-    const coverMarkup = entry.cover
-      ? `<img src="${escapeHtml(entry.cover)}" alt="${escapeHtml(entry.title)} cover" class="collection-cover" />`
+    const coverUrl = entry.cover || coverImageForTitle(entry.title) || "";
+    const coverMarkup = coverUrl
+      ? `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(entry.title)} cover" class="collection-cover" onerror="this.style.display='none'" />`
       : `<span class="cover-placeholder"></span>`;
     const entryRating = entry.rating || 0;
     const collStarsHtml = [1,2,3,4,5].map(n =>
@@ -784,7 +799,8 @@ function unarchiveStoryline(storyId) {
 }
 
 function parseIssue(issue) {
-  const match = issue.match(/^(.*?)\s+#?([\w.-]+)$/);
+  // Match "Title #N", "Title#N", or "Title N" (with or without space/hash before number)
+  const match = issue.match(/^(.*?)\s+#?([\w.-]+)$/) || issue.match(/^(.*?)#([\w.-]+)$/);
   if (!match) {
     return { query: issue, volume: issue, issueNumber: "" };
   }
@@ -2684,7 +2700,7 @@ async function importGcdSeries(series) {
     }
 
     const importedIssues = issues.map(issue => {
-      const issueNumber = issue.number ? `#${issue.number}` : "";
+      const issueNumber = issue.number ? ` #${issue.number}` : "";
       return `${series.name}${issueNumber}`.trim();
     }).filter(Boolean);
 
