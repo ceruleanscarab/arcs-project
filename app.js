@@ -557,7 +557,8 @@ function syncArcProgressToCollection(storyId) {
   if (!story) return;
   story.issues.forEach((issue, index) => {
     const cover = coverFor(storyId, index);
-    const meta = { cover: cover?.image || "" };
+    const coverImg = cover?.image ? (state.imageCache[cover.image] || cover.image) : "";
+    const meta = { cover: coverImg };
     const prog = issueState(storyId, index);
     if (prog.read) {
       setCollectionRead(issue, true);
@@ -574,15 +575,27 @@ function syncArcProgressToCollection(storyId) {
   });
 }
 
-// Backfill cover images into collection entries for all storylines
+// Backfill cover images into collection entries for all storylines.
+// Creates collection entries for any issue that has a loaded cover.
 function backfillCollectionCovers() {
   allStorylines().forEach(story => {
     story.issues.forEach((issue, index) => {
       const cover = coverFor(story.id, index);
       if (!cover?.image) return;
+      const cachedImage = state.imageCache[cover.image] || cover.image;
       const key = normalizeIssueKey(issue);
       if (state.collection[key]) {
-        state.collection[key].cover = cover.image;
+        state.collection[key].cover = cachedImage;
+      } else {
+        // Auto-add to collection with cover when a cover is available
+        const prog = issueState(story.id, index);
+        state.collection[key] = {
+          title: issue.trim(),
+          read: prog.read || false,
+          dateRead: prog.read ? new Date().toISOString() : null,
+          upc: "",
+          cover: cachedImage
+        };
       }
     });
   });
@@ -709,7 +722,8 @@ function toggleIssue(storyId, index, key) {
     if (story?.issues[index]) {
       const nowRead = !current.read;
       const cover = coverFor(storyId, index);
-      const meta = { cover: cover?.image || "" };
+      const coverImg = cover?.image ? (state.imageCache[cover.image] || cover.image) : "";
+      const meta = { cover: coverImg };
       setCollectionRead(story.issues[index], nowRead);
       addToCollection(story.issues[index], meta);
     }
