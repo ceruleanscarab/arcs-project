@@ -1836,72 +1836,92 @@ async function addMissingSeriesToMylar(storyId, missingIndices, triggerBtn) {
   if (!story) return;
   if (triggerBtn) { triggerBtn.disabled = true; triggerBtn.textContent = "Adding to Mylar3…"; }
 
-  // Unique series names from missing issues
-  const uniqueSeries = [...new Set(
-    missingIndices.map(i => parseIssueTitleForMylar(story.issues[i]).series)
-  )];
+  // Build a map of which issue numbers are wanted per series
+  const seriesWantedNumbers = new Map(); // normSeries → Set of issue numbers
+  missingIndices.forEach(i => {
+    const { series, number } = parseIssueTitleForMylar(story.issues[i]);
+    const norm = series.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!seriesWantedNumbers.has(norm)) seriesWantedNumbers.set(norm, { series, numbers: new Set() });
+    if (number) seriesWantedNumbers.get(norm).numbers.add(String(number).replace(/^0+/, ""));
+  });
 
-  let added = 0, alreadyHave = 0, failed = 0, noMatch = 0;
+  let added = 0, alreadyHave = 0, failed = 0, noMatch = 0, issuesMarked = 0;
 
-  for (const seriesName of uniqueSeries) {
+  for (const [norm, { series: seriesName, numbers: wantedNumbers }] of seriesWantedNumbers) {
     try {
-      // Search Comic Vine via Mylar3 for the series
+      // 1. Find the series in Comic Vine via Mylar3
       const searchData = await mylarRequest(`/api?cmd=findComic&name=${encodeURIComponent(seriesName)}`);
-      console.log(`[Mylar findComic "${seriesName}"]`, JSON.stringify(searchData).substring(0, 300));
-
-      // Mylar3 findComic returns a top-level array: [{name, comicid, comicyear, url}, ...]
-      // Some versions wrap it: { data: [...] } or { data: { results: [...] } }
       let results = [];
-      if (Array.isArray(searchData)) {
-        results = searchData;
-      } else if (Array.isArray(searchData?.data?.results)) {
-        results = searchData.data.results;
-      } else if (Array.isArray(searchData?.data)) {
-        results = searchData.data;
-      } else if (Array.isArray(searchData?.results)) {
-        results = searchData.results;
-      }
+      if (Array.isArray(searchData)) results = searchData;
+      else if (Array.isArray(searchData?.data?.results)) results = searchData.data.results;
+      else if (Array.isArray(searchData?.data)) results = searchData.data;
+      else if (Array.isArray(searchData?.results)) results = searchData.results;
 
-      console.log(`[Mylar findComic] ${results.length} results for "${seriesName}"`);
       if (!results.length) { failed++; continue; }
 
-      // Score every result; require score >= 70 to avoid accidentally adding
-      // omnibus/collection editions that contain the series name as a substring.
       const scored = results
         .map(r => ({ r, score: mylarMatchScore(r.name || r.comicname || r.ComicName || "", seriesName) }))
         .filter(x => x.score >= 70)
         .sort((a, b) => b.score - a.score);
 
-      console.log(`[Mylar findComic] scored candidates (>=70) for "${seriesName}":`,
-        scored.map(x => `"${x.r.name||x.r.comicname}" score=${x.score}`));
+      if (!scored.length) { noMatch++; continue; }
 
-      if (!scored.length) {
-        console.warn(`[Mylar] no confident match for "${seriesName}" — skipping to avoid wrong comic`);
-        noMatch++;
-        continue;
-      }
       const best = scored[0].r;
-      console.log(`[Mylar findComic] best match (score=${scored[0].score}):`, JSON.stringify(best).substring(0, 200));
-
-      // Mylar3 uses lowercase "comicid"
       const comicId = best.comicid || best.ComicID || best.id;
-      if (!comicId) { console.warn(`[Mylar] no comicid in result for "${seriesName}"`); failed++; continue; }
+      if (!comicId) { failed++; continue; }
 
+      // 2. Add the series to Mylar3
       const addResult = await mylarRequest(`/api?cmd=addComic&id=${encodeURIComponent(comicId)}`);
-      console.log(`[Mylar addComic ${comicId}]`, JSON.stringify(addResult).substring(0, 200));
-
-      // Mylar3 returns success:false + "already" message if already in library
       const dataMsg = String(addResult?.data || "").toLowerCase();
       if (addResult?.success === false && dataMsg.includes("already")) {
         alreadyHave++;
       } else if (addResult?.success === false) {
-        console.warn(`[Mylar] addComic failed:`, addResult);
         failed++;
+        continue;
       } else {
         added++;
       }
+
+      // 3. Get the full issue list for this series from Mylar3
+      // Use the Mylar3 internal ComicID (may differ from CV id after addComic)
+      let mylarComicId = comicId;
+      try {
+        const indexData = await mylarRequest("/api?cmd=getIndex");
+        const library = Array.isArray(indexData?.data) ? indexData.data : Array.isArray(indexData) ? indexData : [];
+        const entry = library.find(e => {
+          const eid = String(e.ComicID || e.comicid || e.id || "");
+          return eid === String(comicId) || mylarSeriesMatch(e.ComicName || e.name || "", seriesName);
+        });
+        if (entry) mylarComicId = entry.ComicID || entry.comicid || entry.id || comicId;
+      } catch { /* use original comicId */ }
+
+      let allIssues = [];
+      try {
+        const issueData = await mylarRequest(`/api?cmd=getIssues&id=${encodeURIComponent(mylarComicId)}`);
+        allIssues = Array.isArray(issueData?.data) ? issueData.data : Array.isArray(issueData) ? issueData : [];
+      } catch { /* can't get issues, skip marking step */ }
+
+      // 4. Mark wanted issues as "wanted", skip everything else that isn't downloaded
+      for (const issue of allIssues) {
+        const issueId = issue.IssueID || issue.issueid || issue.id;
+        if (!issueId) continue;
+        const issueNum = String(issue.Issue_Number || issue.issue_number || issue.IssueNumber || "").replace(/^0+/, "");
+        const status = (issue.Status || issue.status || "").toLowerCase();
+        const isDownloaded = status === "downloaded" || status === "read";
+        if (isDownloaded) continue; // never touch already-downloaded issues
+
+        if (wantedNumbers.size === 0 || wantedNumbers.has(issueNum)) {
+          // This issue is in the arc — mark as wanted
+          await mylarRequest(`/api?cmd=markissues&action=wanted&issueid=${encodeURIComponent(issueId)}`);
+          issuesMarked++;
+        } else {
+          // Not in the arc — skip it so Mylar3 doesn't download it
+          await mylarRequest(`/api?cmd=markissues&action=skipped&issueid=${encodeURIComponent(issueId)}`);
+        }
+      }
+
     } catch (e) {
-      console.error(`[Mylar] addMissingSeriesToMylar error for "${seriesName}":`, e.message);
+      console.error(`[Mylar] error for "${seriesName}":`, e.message);
       failed++;
     }
   }
@@ -1911,8 +1931,9 @@ async function addMissingSeriesToMylar(storyId, missingIndices, triggerBtn) {
   const parts = [
     added > 0 ? `${added} series added` : null,
     alreadyHave > 0 ? `${alreadyHave} already in Mylar3` : null,
-    noMatch > 0 ? `${noMatch} ambiguous (skipped to avoid wrong comic)` : null,
-    failed > 0 ? `${failed} error` : null
+    issuesMarked > 0 ? `${issuesMarked} specific issues marked wanted` : null,
+    noMatch > 0 ? `${noMatch} ambiguous (skipped)` : null,
+    failed > 0 ? `${failed} failed` : null
   ].filter(Boolean).join(", ");
 
   const allBad = added === 0 && alreadyHave === 0;
