@@ -556,12 +556,35 @@ function syncArcProgressToCollection(storyId) {
   const story = allStorylines().find(s => s.id === storyId);
   if (!story) return;
   story.issues.forEach((issue, index) => {
+    const cover = coverFor(storyId, index);
+    const meta = { cover: cover?.image || "" };
     const prog = issueState(storyId, index);
     if (prog.read) {
       setCollectionRead(issue, true);
+      addToCollection(issue, meta);
     } else if (!collectionEntry(issue)) {
-      addToCollection(issue);
+      addToCollection(issue, meta);
+    } else if (cover?.image) {
+      // Backfill cover into existing entry if missing
+      const key = normalizeIssueKey(issue);
+      if (state.collection[key] && !state.collection[key].cover) {
+        state.collection[key].cover = cover.image;
+      }
     }
+  });
+}
+
+// Backfill cover images into collection entries for all storylines
+function backfillCollectionCovers() {
+  allStorylines().forEach(story => {
+    story.issues.forEach((issue, index) => {
+      const cover = coverFor(story.id, index);
+      if (!cover?.image) return;
+      const key = normalizeIssueKey(issue);
+      if (state.collection[key] && !state.collection[key].cover) {
+        state.collection[key].cover = cover.image;
+      }
+    });
   });
 }
 
@@ -1197,6 +1220,7 @@ async function loadCoversForSelectedStory() {
   elements.apiStatus.textContent = "Cover lookup finished.";
   elements.loadCovers.disabled = false;
   elements.loadCovers.classList.remove("loading");
+  backfillCollectionCovers();
   saveState();
   
   // Automatically save to server if logged in
@@ -1888,6 +1912,7 @@ async function importMylarReadingList() {
     
     state.customStorylines.push(customStoryline);
     saveState();
+    saveToServer();
     render();
     elements.syncStatus.textContent = `Imported reading list "${list.name}" with ${issues.length} issues.`;
   } catch (error) {
@@ -2024,6 +2049,7 @@ elements.cblFileInput.addEventListener("change", (event) => {
       state.selectedId = customStoryline.id;
       state.activePage = "reader";
       saveState();
+      saveToServer();
       render();
 
       elements.syncStatus.textContent = `Imported CBL file with ${issues.length} issues as "${customStoryline.title}".`;
@@ -2593,10 +2619,12 @@ async function importComicVineArc(arc) {
     // Cache all cover images we received at import time
     if (!state.covers[storyId]) state.covers[storyId] = {};
     Object.assign(state.covers[storyId], coversToCache);
+    backfillCollectionCovers();
 
     state.selectedId = storyId;
     state.activePage = "reader";
     saveState();
+    saveToServer();
     render();
     renderSelectedStory();
     const coverCount = Object.keys(coversToCache).length;
@@ -2666,6 +2694,7 @@ async function importGcdSeries(series) {
     state.selectedId = importedStory.id;
     state.activePage = "reader";
     saveState();
+    saveToServer();
     render();
     renderSelectedStory();
     elements.vineLookupStatus.textContent = `${importedStory.title} imported with ${importedIssues.length} issues.`;
@@ -2722,6 +2751,7 @@ async function importMarvelSeries(series) {
     state.selectedId = importedStory.id;
     state.activePage = "reader";
     saveState();
+    saveToServer();
     render();
     renderSelectedStory();
     elements.vineLookupStatus.textContent = `${importedStory.title} imported with ${importedIssues.length} issues.`;
@@ -2766,6 +2796,7 @@ function importWebResult(item) {
   }
   state.activePage = "reader";
   saveState();
+  saveToServer();
   render();
   renderSelectedStory();
   elements.vineLookupStatus.textContent = `${importedStory.title} imported from internet search.`;
@@ -3382,6 +3413,7 @@ elements.loginProfile.addEventListener("click", async () => {
         state.covers = data.profile.data.covers || {};
         state.komgaMatches = data.profile.data.komgaMatches || {};
         state.mylarMatches = data.profile.data.mylarMatches || {};
+        backfillCollectionCovers();
         // Restore API settings from server
         if (data.profile.data.settings) {
           const s = data.profile.data.settings;
@@ -3640,8 +3672,9 @@ elements.saveCustomOrder.addEventListener("click", () => {
   // Clear validation states
   setValidationState(elements.customTitle, true);
   setValidationState(elements.customIssues, true);
-  
+
   saveState();
+  saveToServer();
   render();
   autoSyncMylarForStory(story.id);
 });
