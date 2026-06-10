@@ -126,6 +126,8 @@ const elements = {
   profileAvatar: document.querySelector("#profileAvatar"),
   avatarSelector: document.querySelector(".avatar-selector"),
   profilePassword: document.querySelector("#profilePassword"),
+  profilePasswordLabel: document.querySelector("#profilePasswordLabel"),
+  saveProfileChanges: document.querySelector("#saveProfileChanges"),
   registerProfile: document.querySelector("#registerProfile"),
   loginProfile: document.querySelector("#loginProfile"),
   logoutProfile: document.querySelector("#logoutProfile"),
@@ -3286,16 +3288,20 @@ function render() {
   if (state.isAuthenticated) {
     elements.registerProfile.style.display = "none";
     elements.loginProfile.style.display = "none";
+    elements.saveProfileChanges.style.display = "inline-block";
     elements.logoutProfile.style.display = "inline-block";
     elements.saveToServer.style.display = "inline-block";
+    if (elements.profilePasswordLabel) elements.profilePasswordLabel.style.display = "none";
     if (elements.logoutButton) {
       elements.logoutButton.style.display = "inline-block";
     }
   } else {
     elements.registerProfile.style.display = "inline-block";
     elements.loginProfile.style.display = "inline-block";
+    elements.saveProfileChanges.style.display = "none";
     elements.logoutProfile.style.display = "none";
     elements.saveToServer.style.display = "none";
+    if (elements.profilePasswordLabel) elements.profilePasswordLabel.style.display = "";
     if (elements.logoutButton) {
       elements.logoutButton.style.display = "none";
     }
@@ -3599,6 +3605,24 @@ if (elements.saveProfile) {
     // Automatically save current progress when profile is created/updated
     saveState();
     elements.syncStatus.textContent = "Profile and progress saved on this device.";
+    render();
+  });
+}
+
+// Save profile changes without password (JWT auth)
+if (elements.saveProfileChanges) {
+  elements.saveProfileChanges.addEventListener("click", async () => {
+    state.profile = {
+      ...state.profile,
+      name: elements.profileName.value.trim(),
+      email: elements.profileEmail.value.trim(),
+      publisher: elements.profilePublisher.value,
+      syncName: elements.profileSyncName.value.trim(),
+      avatar: state.profile?.avatar || "avatars/Doom-6.png"
+    };
+    saveState();
+    await saveToServer();
+    elements.syncStatus.textContent = "Profile changes saved.";
     render();
   });
 }
