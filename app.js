@@ -290,6 +290,7 @@ function renderStoryList() {
       state.activePage = "reader";
       saveState();
       render();
+      autoSyncKomgaReadProgress(story.id);
     });
     if (state.customStorylines.some((item) => item.id === story.id)) {
       const removeButton = document.createElement("button");
@@ -372,6 +373,7 @@ function renderAllStorylines() {
       state.activePage = "reader";
       saveState();
       render();
+      autoSyncKomgaReadProgress(story.id);
     });
     elements.allStorylinesList.append(card);
   });
@@ -2168,6 +2170,41 @@ function saveKomgaMatch(storyId, index, book) {
   };
 }
 
+// Silently check read progress for already-matched Komga books.
+// Only looks up issues that have a komgaMatch — no slow book searches.
+async function autoSyncKomgaReadProgress(storyId) {
+  if (!cleanKomgaUrl() || !state.komga?.username || !state.komga?.password) return;
+  const matches = state.komgaMatches?.[storyId];
+  if (!matches || !Object.keys(matches).length) return;
+
+  let changed = false;
+  await Promise.all(Object.entries(matches).map(async ([indexStr, match]) => {
+    if (!match?.id) return;
+    const index = Number(indexStr);
+    try {
+      const book = await komgaRequest(`/api/v1/books/${encodeURIComponent(match.id)}`);
+      if (book?.readProgress?.completed) {
+        const current = issueState(storyId, index);
+        if (!current.read) {
+          storyProgress(storyId)[index] = { ...current, read: true, skipped: false };
+          const story = allStorylines().find(s => s.id === storyId);
+          if (story?.issues[index]) setCollectionRead(story.issues[index], true);
+          changed = true;
+        }
+      }
+    } catch { /* ignore — book may have been removed from Komga */ }
+  }));
+
+  if (changed) {
+    saveState();
+    saveToServer();
+    renderSelectedStory();
+    renderStoryList();
+    renderAllStorylines();
+    if (state.activePage === "collection") renderCollection();
+  }
+}
+
 async function syncKomgaForSelectedStory() {
   const story = selectedStory();
   if (!cleanKomgaUrl() || !state.komga?.username || !state.komga?.password) {
@@ -3832,6 +3869,8 @@ if (elements.loginButton) {
         elements.loginStatus.textContent = `Welcome back, ${data.profile.name}!`;
         elements.loginStatus.classList.add("success");
         render();
+        // Silently sync Komga read progress for all previously-matched stories
+        Object.keys(state.komgaMatches).forEach(sid => autoSyncKomgaReadProgress(sid));
       } else {
         elements.loginStatus.textContent = data.error || "Login failed.";
         elements.loginStatus.classList.add("error");
