@@ -630,6 +630,18 @@ function coverImageForTitle(issueTitle) {
 
 function renderCollection() {
   if (!elements.collectionList) return;
+  const storyCount = allStorylines().length;
+  const coverStories = Object.keys(state.covers).length;
+  const totalCovers = Object.values(state.covers).reduce((n, s) => n + Object.keys(s).length, 0);
+  console.log("[ARCS debug] renderCollection:", {
+    collectionEntries: Object.keys(state.collection).length,
+    storylines: storyCount,
+    storiesWithCovers: coverStories,
+    totalCoverEntries: totalCovers,
+    imageCacheSize: Object.keys(state.imageCache || {}).length,
+    firstEntry: Object.values(state.collection)[0],
+    firstCover: Object.values(state.covers)[0] ? Object.values(Object.values(state.covers)[0])[0] : null,
+  });
   const entries = Object.values(state.collection);
   const filter = state.collectionFilter || "all";
   const filtered = entries.filter(e =>
