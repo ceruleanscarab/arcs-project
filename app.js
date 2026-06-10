@@ -3041,7 +3041,11 @@ function render() {
     elements.profileSyncName.value = state.profile?.syncName || "";
   }
   if (elements.profileAvatar) {
-    const avatar = state.profile?.avatar || "avatars/Doom-6.png";
+    let avatar = state.profile?.avatar || "avatars/Doom-6.png";
+    // Migrate old paths that lack the avatars/ prefix
+    if ((avatar.endsWith('.png') || avatar.endsWith('.jpg')) && !avatar.includes('/')) {
+      avatar = `avatars/${avatar}`;
+    }
     if (avatar.includes('/') || avatar.endsWith('.png') || avatar.endsWith('.jpg')) {
       elements.profileAvatar.innerHTML = `<img src="${avatar}" alt="Profile avatar" />`;
     } else {
