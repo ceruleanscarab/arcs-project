@@ -733,17 +733,15 @@ async function handleProfileRequest(request, response) {
     }
   } else if (path === "/api/profile/save" && request.method === "POST") {
     try {
+      const decoded = requireAuth(request, response);
+      if (!decoded) return;
+
       const payload = await readJson(request);
-      const { email, password, data } = payload;
+      const { data } = payload;
 
-      if (!email || !password) {
-        send(response, 400, JSON.stringify({ error: "Email and password are required." }));
-        return;
-      }
-
-      const profile = profiles[email];
-      if (!profile || !(await verifyPassword(password, profile.passwordHash))) {
-        send(response, 401, JSON.stringify({ error: "Invalid email or password." }));
+      const profile = profiles[decoded.email];
+      if (!profile) {
+        send(response, 404, JSON.stringify({ error: "Profile not found." }));
         return;
       }
 
@@ -757,9 +755,9 @@ async function handleProfileRequest(request, response) {
       profile.updatedAt = new Date().toISOString();
       saveProfiles();
 
-      send(response, 200, JSON.stringify({ 
-        success: true, 
-        message: "Profile data saved successfully." 
+      send(response, 200, JSON.stringify({
+        success: true,
+        message: "Profile data saved successfully."
       }));
     } catch (error) {
       send(response, 500, JSON.stringify({ error: "An error occurred while saving profile data." }));

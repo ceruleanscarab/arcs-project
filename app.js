@@ -1200,30 +1200,12 @@ async function loadCoversForSelectedStory() {
   saveState();
   
   // Automatically save to server if logged in
-  if (state.isAuthenticated && state.sessionEmail && elements.profilePassword.value) {
+  if (state.isAuthenticated && state.token) {
     try {
-      const dataToSave = {
-        progress: state.progress,
-        customStorylines: state.customStorylines,
-        covers: state.covers,
-        komgaMatches: state.komgaMatches,
-        mylarMatches: state.mylarMatches,
-        selectedId: state.selectedId,
-        darkMode: state.darkMode
-      };
-      
-      await fetch(`${window.location.origin}/api/profile/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          email: state.sessionEmail, 
-          password: elements.profilePassword.value,
-          data: dataToSave 
-        })
-      });
+      await saveToServer();
       elements.apiStatus.textContent = "Cover lookup finished and saved to server.";
     } catch (error) {
-      elements.apiStatus.textContent = "Cover lookup finished. (Could not auto-save to server - click Save to Server)";
+      elements.apiStatus.textContent = "Cover lookup finished. (Could not auto-save to server)";
     }
   } else {
     elements.apiStatus.textContent = "Cover lookup finished. Click Save to Server to persist covers.";
@@ -2975,18 +2957,13 @@ function render() {
     elements.profileSyncName.value = state.profile?.syncName || "";
   }
   if (elements.profileAvatar) {
-    const avatar = state.profile?.avatar || "Doom-6.png";
-    if (avatar.endsWith('.png') || avatar.endsWith('.jpg') || avatar.endsWith('.jpeg')) {
-      elements.profileAvatar.innerHTML = `<img src="${avatar}" alt="Profile avatar" />`;
-    } else {
-      elements.profileAvatar.textContent = avatar;
-    }
+    elements.profileAvatar.textContent = state.profile?.avatar || "📚";
   }
   
   // Update avatar selection
   if (elements.avatarSelector) {
     document.querySelectorAll(".avatar-option").forEach((option) => {
-      option.classList.toggle("active", option.dataset.avatar === (state.profile?.avatar || "Doom-6.png"));
+      option.classList.toggle("active", option.dataset.avatar === (state.profile?.avatar || "📚"));
     });
   }
   
@@ -3400,6 +3377,16 @@ elements.loginProfile.addEventListener("click", async () => {
         state.covers = data.profile.data.covers || {};
         state.komgaMatches = data.profile.data.komgaMatches || {};
         state.mylarMatches = data.profile.data.mylarMatches || {};
+        // Restore API settings from server
+        if (data.profile.data.settings) {
+          const s = data.profile.data.settings;
+          if (s.komgaUrl) state.komga = { ...state.komga, url: s.komgaUrl };
+          if (s.komgaUsername) state.komga = { ...state.komga, username: s.komgaUsername };
+          if (s.komgaPassword) { state.komga = { ...state.komga, password: s.komgaPassword }; sessionStorage.setItem(komgaSessionKey, JSON.stringify({ password: s.komgaPassword })); }
+          if (s.mylarUrl) state.mylar = { ...state.mylar, url: s.mylarUrl };
+          if (s.mylarApiKey) { state.mylar = { ...state.mylar, apiKey: s.mylarApiKey }; sessionStorage.setItem(mylarSessionKey, JSON.stringify({ apiKey: s.mylarApiKey })); }
+          if (s.comicVineKey) { state.comicVineKey = s.comicVineKey; sessionStorage.setItem(comicVineSessionKey, s.comicVineKey); }
+        }
       }
       
       // Store JWT token in memory only (not localStorage)
@@ -3421,29 +3408,9 @@ elements.loginProfile.addEventListener("click", async () => {
 // Profile logout
 elements.logoutProfile.addEventListener("click", async () => {
   // Auto-save to server before logout if logged in
-  if (state.isAuthenticated && state.sessionEmail && elements.profilePassword.value) {
+  if (state.isAuthenticated && state.token) {
     try {
-      const dataToSave = {
-        progress: state.progress,
-        customStorylines: state.customStorylines,
-        covers: state.covers,
-        komgaMatches: state.komgaMatches,
-        mylarMatches: state.mylarMatches,
-        selectedId: state.selectedId,
-        darkMode: state.darkMode,
-        archivedStorylines: state.archivedStorylines,
-        showArchived: state.showArchived
-      };
-      
-      await fetch(`${window.location.origin}/api/profile/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          email: state.sessionEmail, 
-          password: elements.profilePassword.value,
-          data: dataToSave 
-        })
-      });
+      await saveToServer();
     } catch (error) {
       console.error("Failed to auto-save before logout:", error);
     }
@@ -3456,49 +3423,47 @@ elements.logoutProfile.addEventListener("click", async () => {
   render();
 });
 
+function buildServerPayload() {
+  return {
+    progress: state.progress,
+    customStorylines: state.customStorylines,
+    covers: state.covers,
+    komgaMatches: state.komgaMatches,
+    mylarMatches: state.mylarMatches,
+    selectedId: state.selectedId,
+    darkMode: state.darkMode,
+    archivedStorylines: state.archivedStorylines,
+    showArchived: state.showArchived,
+    settings: {
+      komgaUrl: state.komga?.url || "",
+      komgaUsername: state.komga?.username || "",
+      komgaPassword: state.komga?.password || "",
+      mylarUrl: state.mylar?.url || "",
+      mylarApiKey: state.mylar?.apiKey || "",
+      comicVineKey: state.comicVineKey || ""
+    }
+  };
+}
+
+async function saveToServer() {
+  if (!state.isAuthenticated || !state.token) return false;
+  const response = await fetch(`${window.location.origin}/api/profile/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${state.token}` },
+    body: JSON.stringify({ data: buildServerPayload() })
+  });
+  return response.ok;
+}
+
 // Save to server
 elements.saveToServer.addEventListener("click", async () => {
-  if (!state.isAuthenticated || !state.sessionEmail) {
+  if (!state.isAuthenticated || !state.token) {
     elements.syncStatus.textContent = "Please log in first.";
     return;
   }
-  
-  const password = elements.profilePassword.value;
-  if (!password) {
-    elements.syncStatus.textContent = "Password required to save to server.";
-    return;
-  }
-  
   try {
-    const dataToSave = {
-      progress: state.progress,
-      customStorylines: state.customStorylines,
-      covers: state.covers,
-      komgaMatches: state.komgaMatches,
-      mylarMatches: state.mylarMatches,
-      selectedId: state.selectedId,
-      darkMode: state.darkMode,
-      archivedStorylines: state.archivedStorylines,
-      showArchived: state.showArchived
-    };
-    
-    const response = await fetch(`${window.location.origin}/api/profile/save`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        email: state.sessionEmail, 
-        password,
-        data: dataToSave 
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      elements.syncStatus.textContent = "Profile data saved to server successfully.";
-    } else {
-      elements.syncStatus.textContent = data.error || "Save failed.";
-    }
+    const ok = await saveToServer();
+    elements.syncStatus.textContent = ok ? "Profile data saved to server successfully." : "Save failed.";
   } catch (error) {
     elements.syncStatus.textContent = `Save failed: ${error.message}`;
   }
