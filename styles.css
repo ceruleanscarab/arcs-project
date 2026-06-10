@@ -837,6 +837,20 @@ body.dark-mode .stat {
   margin-top: 16px;
 }
 
+.vine-creator-row {
+  grid-template-columns: minmax(0, 1fr) 140px;
+  margin-top: 8px;
+}
+
+.vine-creator-row select {
+  min-height: 38px;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  padding: 0 6px;
+}
+
 .vine-lookup-row input,
 .vine-lookup-row button,
 .vine-result button {
@@ -905,6 +919,13 @@ body.dark-mode .stat {
   letter-spacing: 0.5px;
 }
 
+.vine-result .creator-credit {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .vine-result .pub-date {
   margin: 0 0 4px;
   font-size: 0.75rem;
@@ -952,6 +973,7 @@ body.dark-mode .page-tab,
 body.dark-mode .toolbar-actions button,
 body.dark-mode .vine-lookup-row input,
 body.dark-mode .vine-lookup-row button,
+body.dark-mode .vine-creator-row select,
 body.dark-mode .vine-result,
 body.dark-mode .vine-result button,
 body.dark-mode .secondary-action,
@@ -1592,11 +1614,88 @@ body.dark-mode .login-panel select {
 }
 
 .collection-cover {
-  width: 40px;
-  height: 60px;
+  width: 70px;
+  height: 96px;
   object-fit: cover;
   border-radius: 3px;
   flex-shrink: 0;
+}
+
+/* Arc import preview panel */
+.arc-preview-panel {
+  width: min(600px, 100vw);
+  display: flex;
+  flex-direction: column;
+}
+
+.arc-preview-panel .issue-detail-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.arc-preview-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  background: var(--panel);
+  border-top: 2px solid var(--line);
+}
+
+.arc-preview-actions button {
+  flex: 1;
+  min-height: 42px;
+  font-size: 1rem;
+}
+
+.arc-preview-issue-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.arc-preview-issue {
+  display: grid;
+  grid-template-columns: 28px 48px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.arc-preview-issue img {
+  width: 40px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+}
+
+.arc-preview-issue .issue-num {
+  font-weight: 900;
+  font-size: 0.75rem;
+  opacity: 0.5;
+  text-align: right;
+}
+
+.arc-preview-issue .issue-date {
+  font-size: 0.72rem;
+  opacity: 0.55;
+}
+
+.arc-preview-order-note {
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  background: var(--line);
+  border-radius: 6px;
+  margin: 12px 0 0;
+  opacity: 0.8;
 }
 
 /* Issue detail panel */
@@ -1701,6 +1800,10 @@ body.dark-mode .login-panel select {
   font-size: 0.78rem;
   opacity: 0.5;
   text-align: right;
+}
+
+.issue-item.collection-item {
+  grid-template-columns: 78px 1fr auto auto;
 }
 
 .issue-item .issue-title-link {

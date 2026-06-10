@@ -216,6 +216,18 @@
           </div>
         </div>
 
+        <!-- Arc import preview overlay -->
+        <div id="arcPreviewOverlay" class="issue-detail-overlay hidden" aria-modal="true" role="dialog">
+          <div id="arcPreviewPanel" class="issue-detail-panel arc-preview-panel">
+            <button id="arcPreviewClose" class="issue-detail-close" type="button" aria-label="Close">✕</button>
+            <div id="arcPreviewContent" class="issue-detail-content"></div>
+            <div class="arc-preview-actions">
+              <button id="arcPreviewConfirm" type="button" class="state-button read active">Confirm Import</button>
+              <button id="arcPreviewCancel" type="button" class="state-button skip">Cancel</button>
+            </div>
+          </div>
+        </div>
+
         <div id="lookupPage" class="page-view hidden">
           <section class="overview" aria-label="Data source lookup overview">
             <div>
@@ -233,8 +245,19 @@
               </div>
             </div>
             <div class="vine-lookup-row">
-              <input id="vineArcSearch" type="search" placeholder="Search story arcs or series, e.g. Civil War, Batman, Avengers..." autocomplete="off" />
-              <button id="searchVineArcs" type="button">Search all</button>
+              <input id="vineArcSearch" type="search" placeholder="Story arc or series title, e.g. Civil War, X-Men, Batman..." autocomplete="off" />
+              <button id="searchVineArcs" type="button">Search</button>
+            </div>
+            <div class="vine-lookup-row vine-creator-row">
+              <input id="creatorSearch" type="search" placeholder="Creator name (optional), e.g. Chris Claremont, Jack Kirby..." autocomplete="off" />
+              <select id="creatorRole">
+                <option value="">Any role</option>
+                <option value="writer">Writer</option>
+                <option value="penciller">Penciller</option>
+                <option value="artist">Artist</option>
+                <option value="inker">Inker</option>
+                <option value="colorist">Colorist</option>
+              </select>
             </div>
             <div id="vineArcResults" class="vine-results" aria-live="polite"></div>
           </section>

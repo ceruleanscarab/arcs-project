@@ -111,6 +111,8 @@ const elements = {
   importMylarList: document.querySelector("#importMylarList"),
   exportMylarList: document.querySelector("#exportMylarList"),
   vineArcSearch: document.querySelector("#vineArcSearch"),
+  creatorSearch: document.querySelector("#creatorSearch"),
+  creatorRole: document.querySelector("#creatorRole"),
   searchVineArcs: document.querySelector("#searchVineArcs"),
   vineArcResults: document.querySelector("#vineArcResults"),
   vineLookupStatus: document.querySelector("#vineLookupStatus"),
@@ -658,7 +660,7 @@ const entries = Object.values(state.collection);
   filtered.forEach(entry => {
     const key = normalizeIssueKey(entry.title);
     const li = document.createElement("li");
-    li.className = "issue-item";
+    li.className = "issue-item collection-item";
     const coverUrl = entry.cover || coverImageForTitle(entry.title) || "";
     const coverMarkup = coverUrl
       ? `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(entry.title)} cover" class="collection-cover" onerror="this.style.display='none'" />`
@@ -669,9 +671,8 @@ const entries = Object.values(state.collection);
     ).join("");
     li.innerHTML = `
       ${coverMarkup}
-      <span class="issue-number"></span>
       <span>
-        <span class="issue-title">${escapeHtml(entry.title)}</span>
+        <span class="issue-title issue-title-link">${escapeHtml(entry.title)}</span>
         <span class="issue-note">${entry.upc ? "UPC: " + escapeHtml(entry.upc) + " · " : ""}${entry.read && entry.dateRead ? "Read " + new Date(entry.dateRead).toLocaleDateString() : entry.read ? "Read" : "Unread"}</span>
         <span class="star-rating-wrap">
           <span class="star-rating">${collStarsHtml}</span>
@@ -681,6 +682,7 @@ const entries = Object.values(state.collection);
       <button class="state-button read ${entry.read ? "active" : ""}" type="button" data-key="${escapeHtml(key)}">${entry.read ? "Read" : "Unread"}</button>
       <button class="state-button skip" type="button" data-key="${escapeHtml(key)}" title="Remove from collection">Remove</button>
     `;
+    li.querySelector(".issue-title-link").addEventListener("click", () => openIssueDetail(entry.title, null, null));
     li.querySelector(".read").addEventListener("click", () => {
       setCollectionRead(entry.title, !entry.read);
       syncCollectionToArcProgress(entry.title, !entry.read);
@@ -1836,7 +1838,15 @@ async function syncMylarForSelectedStory() {
 async function addMissingSeriesToMylar(storyId, missingIndices, triggerBtn) {
   const story = allStorylines().find(s => s.id === storyId);
   if (!story) return;
-  if (triggerBtn) { triggerBtn.disabled = true; triggerBtn.textContent = "Adding to Mylar3…"; }
+
+  if (missingIndices.length > 15) {
+    const confirmed = window.confirm(
+      `This will add ${missingIndices.length} issues to Mylar3. Are you sure you want to continue?`
+    );
+    if (!confirmed) return;
+  }
+
+  if (triggerBtn) { triggerBtn.disabled = true; triggerBtn.textContent = "Adding to Mylar3 (may take up to a minute)…"; }
 
   // Build a map of which issue numbers are wanted per series
   const seriesWantedNumbers = new Map(); // normSeries → Set of issue numbers
@@ -1897,13 +1907,25 @@ async function addMissingSeriesToMylar(storyId, missingIndices, triggerBtn) {
         if (entry) mylarComicId = entry.ComicID || entry.comicid || entry.id || comicId;
       } catch { /* use original comicId */ }
 
+      // 4. Wait for Mylar3 to finish indexing the newly-added series, then fetch issues.
+      // Mylar3 indexes asynchronously after addComic, so getIssues may return empty
+      // immediately. Retry up to 6 times with a 3-second gap (18 seconds total).
       let allIssues = [];
-      try {
-        const issueData = await mylarRequest(`/api?cmd=getIssues&id=${encodeURIComponent(mylarComicId)}`);
-        allIssues = Array.isArray(issueData?.data) ? issueData.data : Array.isArray(issueData) ? issueData : [];
-      } catch { /* can't get issues, skip marking step */ }
+      for (let attempt = 0; attempt < 6; attempt++) {
+        await new Promise(r => setTimeout(r, attempt === 0 ? 2000 : 3000));
+        try {
+          const issueData = await mylarRequest(`/api?cmd=getIssues&id=${encodeURIComponent(mylarComicId)}`);
+          allIssues = Array.isArray(issueData?.data) ? issueData.data : Array.isArray(issueData) ? issueData : [];
+        } catch { /* ignore, will retry */ }
+        if (allIssues.length > 0) break;
+        console.log(`[Mylar] getIssues attempt ${attempt + 1} returned 0 issues, retrying…`);
+      }
 
-      // 4. Mark wanted issues as "wanted", skip everything else that isn't downloaded
+      if (!allIssues.length) {
+        console.warn(`[Mylar] Could not fetch issues for "${seriesName}" after retries — series was added but issues could not be filtered.`);
+      }
+
+      // 5. Mark arc issues as "wanted", skip everything else that isn't downloaded
       for (const issue of allIssues) {
         const issueId = issue.IssueID || issue.issueid || issue.id;
         if (!issueId) continue;
@@ -2370,16 +2392,91 @@ async function getMarvelSeriesIssues(seriesId) {
   }
 }
 
+async function searchCreatorVolumes(creatorName, role) {
+  if (!state.comicVineKey?.trim() || !creatorName) return null;
+  const roleFilter = role ? role.toLowerCase() : "";
+
+  const searchData = await comicVineJsonp("search/", {
+    resources: "person",
+    query: creatorName,
+    limit: "3",
+    field_list: "id,name,real_name"
+  });
+  const people = Array.isArray(searchData?.results) ? searchData.results : [];
+  if (!people.length) return null;
+
+  const personId = people[0].id;
+  const personData = await comicVineJsonp(`person/4040-${personId}/`, {
+    field_list: "id,name,volume_credits"
+  });
+  const credits = Array.isArray(personData?.results?.volume_credits) ? personData.results.volume_credits : [];
+
+  const volumeIds = new Set();
+  credits.forEach(v => {
+    const roles = (v.roles || "").toLowerCase();
+    if (!roleFilter || roles.includes(roleFilter)) volumeIds.add(v.id);
+  });
+
+  return { person: people[0], volumeIds, credits };
+}
+
 async function searchComicVineArcs() {
   const query = elements.vineArcSearch.value.trim();
-  if (!query) {
-    elements.vineLookupStatus.textContent = "Enter a storyline name to search.";
+  const creatorName = elements.creatorSearch?.value.trim() || "";
+  const creatorRole = elements.creatorRole?.value || "";
+
+  if (!query && !creatorName) {
+    elements.vineLookupStatus.textContent = "Enter a title or creator name to search.";
     return;
   }
 
   elements.searchVineArcs.disabled = true;
   elements.searchVineArcs.classList.add("loading");
   elements.vineArcResults.innerHTML = "";
+
+  // Creator-only search: show volumes by that creator
+  if (!query && creatorName) {
+    elements.vineLookupStatus.innerHTML = `<span class="spinner"></span> Searching for creator "${creatorName}"…`;
+    try {
+      const creatorInfo = await searchCreatorVolumes(creatorName, creatorRole);
+      if (!creatorInfo || !creatorInfo.credits.length) {
+        elements.vineLookupStatus.textContent = `No results found for creator "${creatorName}".`;
+        elements.searchVineArcs.disabled = false;
+        elements.searchVineArcs.classList.remove("loading");
+        return;
+      }
+      const { person, credits } = creatorInfo;
+      const roleFilter = creatorRole.toLowerCase();
+      const filtered = roleFilter ? credits.filter(v => (v.roles || "").toLowerCase().includes(roleFilter)) : credits;
+      const roleLabel = creatorRole ? ` (${creatorRole})` : "";
+      elements.vineLookupStatus.textContent = `Found ${filtered.length} volume${filtered.length === 1 ? "" : "s"} by ${person.name}${roleLabel}.`;
+
+      const allResults = [];
+      for (const vol of filtered.slice(0, 20)) {
+        try {
+          const volData = await comicVineJsonp(`volume/4050-${vol.id}/`, {
+            field_list: "id,name,deck,description,image,publisher,site_detail_url,count_of_issues,start_year"
+          });
+          if (volData?.results) {
+            allResults.push({
+              ...volData.results,
+              source: "comicvine",
+              sourceLabel: "Comic Vine",
+              type: "Series",
+              priority: 1,
+              _creatorCredit: `${person.name}${vol.roles ? ` — ${vol.roles}` : ""}`
+            });
+          }
+        } catch { }
+      }
+      renderUnifiedResults(allResults);
+    } catch (err) {
+      elements.vineLookupStatus.textContent = `Error searching for creator: ${err.message}`;
+    }
+    elements.searchVineArcs.disabled = false;
+    elements.searchVineArcs.classList.remove("loading");
+    return;
+  }
 
   // Empty query — show trending/popular
   if (!query) {
@@ -2401,19 +2498,33 @@ async function searchComicVineArcs() {
     return;
   }
 
-  elements.vineLookupStatus.innerHTML = `<span class="spinner"></span> Searching for "${query}"...`;
+  const statusMsg = creatorName ? `Searching for "${query}" by ${creatorName}…` : `Searching for "${query}"…`;
+  elements.vineLookupStatus.innerHTML = `<span class="spinner"></span> ${statusMsg}`;
 
   const allResults = [];
   const errors = [];
+
+  // Resolve creator volumes upfront if creator filter is specified
+  let creatorVolumeIds = null;
+  let resolvedCreator = null;
+  if (creatorName && state.comicVineKey?.trim()) {
+    try {
+      const creatorInfo = await searchCreatorVolumes(creatorName, creatorRole);
+      if (creatorInfo) {
+        creatorVolumeIds = creatorInfo.volumeIds;
+        resolvedCreator = creatorInfo.person;
+      }
+    } catch { }
+  }
 
   // Search Comic Vine if API key is available
   if (state.comicVineKey.trim()) {
     try {
       const data = await comicVineJsonp("search/", {
-        resources: "story_arc",
+        resources: "story_arc,volume",
         query,
-        limit: "5",
-        field_list: "id,name,deck,description,image,publisher,site_detail_url"
+        limit: "10",
+        field_list: "id,name,deck,description,image,publisher,site_detail_url,resource_type"
       });
       let results = Array.isArray(data?.results) ? data.results : [];
 
@@ -2427,31 +2538,43 @@ async function searchComicVineArcs() {
       }
 
       results.forEach(result => {
-        allResults.push({ ...result, source: "comicvine", sourceLabel: "Comic Vine", type: "Story Arc", priority: 1 });
+        const isVolume = result.resource_type === "volume";
+        if (creatorVolumeIds && isVolume && !creatorVolumeIds.has(result.id)) return;
+        const roleLabel = creatorRole ? ` (${creatorRole})` : "";
+        const credit = resolvedCreator ? `${resolvedCreator.name}${roleLabel}` : null;
+        allResults.push({
+          ...result,
+          source: "comicvine",
+          sourceLabel: "Comic Vine",
+          type: isVolume ? "Series" : "Story Arc",
+          priority: 1,
+          ...(credit ? { _creatorCredit: credit } : {})
+        });
       });
     } catch (error) {
       errors.push({ source: "Comic Vine", error: error.message });
     }
   }
 
-  // Search GCD series as fallback
-  try {
-    const gcdResults = await searchGcdSeries(query);
-    gcdResults.forEach(series => {
-      allResults.push({ ...series, source: "gcd", sourceLabel: "Grand Comics Database", type: "Series", priority: 2 });
-    });
-  } catch (error) {
-    errors.push({ source: "GCD", error: error.message });
-  }
+  // GCD and Marvel don't support creator filtering — skip them when a creator is specified
+  if (!creatorName) {
+    try {
+      const gcdResults = await searchGcdSeries(query);
+      gcdResults.forEach(series => {
+        allResults.push({ ...series, source: "gcd", sourceLabel: "Grand Comics Database", type: "Series", priority: 2 });
+      });
+    } catch (error) {
+      errors.push({ source: "GCD", error: error.message });
+    }
 
-  // Search Marvel series as fallback
-  try {
-    const marvelResults = await searchMarvelSeries(query);
-    marvelResults.forEach(series => {
-      allResults.push({ ...series, source: "marvel", sourceLabel: "Marvel", type: "Series", priority: 2 });
-    });
-  } catch (error) {
-    errors.push({ source: "Marvel", error: error.message });
+    try {
+      const marvelResults = await searchMarvelSeries(query);
+      marvelResults.forEach(series => {
+        allResults.push({ ...series, source: "marvel", sourceLabel: "Marvel", type: "Series", priority: 2 });
+      });
+    } catch (error) {
+      errors.push({ source: "Marvel", error: error.message });
+    }
   }
 
   // Search internet as last resort
@@ -2475,8 +2598,11 @@ async function searchComicVineArcs() {
   renderUnifiedResults(allResults);
 
   const totalResults = allResults.length;
+  const creatorSuffix = resolvedCreator ? ` by ${resolvedCreator.name}${creatorRole ? ` (${creatorRole})` : ""}` : "";
   if (totalResults) {
-    elements.vineLookupStatus.textContent = `Found ${totalResults} result${totalResults === 1 ? "" : "s"}.`;
+    elements.vineLookupStatus.textContent = `Found ${totalResults} result${totalResults === 1 ? "" : "s"}${creatorSuffix}.`;
+  } else if (creatorName && !resolvedCreator) {
+    elements.vineLookupStatus.textContent = `Creator "${creatorName}" not found on Comic Vine. Try searching by title only.`;
   } else if (errors.length) {
     elements.vineLookupStatus.textContent = `No results found. Errors: ${errors.map(e => `${e.source}: ${e.error}`).join("; ")}`;
   } else {
@@ -2545,6 +2671,7 @@ function renderUnifiedResults(results) {
         <h4>${escapeHtml(name)}</h4>
         <p class="source-badge">${escapeHtml(sourceLabel)} · ${escapeHtml(type)}</p>
         ${pubDate ? `<p class="pub-date">Published: ${escapeHtml(pubDate)}</p>` : ""}
+        ${item._creatorCredit ? `<p class="creator-credit">✏️ ${escapeHtml(item._creatorCredit)}</p>` : ""}
         <p>${escapeHtml(stripHtml(description || "Comic series"))}</p>
       </div>
       <button type="button" data-source="${item.source}" data-id="${item.id}">Import</button>
@@ -2619,34 +2746,28 @@ function renderMarvelSeriesResults(results) {
 }
 
 async function importComicVineArc(arc) {
-  const importButton = document.querySelector(`[data-arc-id="${arc.id}"]`);
-  if (importButton) {
-    importButton.classList.add("loading");
-    importButton.disabled = true;
-  }
-  elements.vineLookupStatus.innerHTML = `<span class="spinner"></span> Importing ${arc.name || arc.title}...`;
+  const importButton = document.querySelector(`[data-arc-id="${arc.id}"]`) ||
+    document.querySelector(`[data-source="comicvine"][data-id="${arc.id}"]`);
+  if (importButton) { importButton.classList.add("loading"); importButton.disabled = true; }
+  elements.vineLookupStatus.innerHTML = `<span class="spinner"></span> Fetching ${arc.name || arc.title}…`;
   try {
-    // Step 1: fetch story arc detail to get the list of issue stubs (id only)
+    // Step 1: fetch arc detail → issue stubs
     const data = await comicVineJsonp(`story_arc/4045-${arc.id}/`, {
       field_list: "id,name,deck,description,issues,publisher,image,site_detail_url"
     });
     const detail = data?.results || arc;
     const issueStubs = Array.isArray(detail.issues) ? detail.issues : [];
     if (!issueStubs.length) {
-      elements.vineLookupStatus.textContent = "Comic Vine returned this arc, but no issues were available to import.";
-      if (importButton) {
-        importButton.classList.remove("loading");
-        importButton.disabled = false;
-      }
+      elements.vineLookupStatus.textContent = "Comic Vine returned this arc, but no issues were available.";
+      if (importButton) { importButton.classList.remove("loading"); importButton.disabled = false; }
       return;
     }
 
-    // Step 2: batch-fetch full issue details (volume name, issue number, cover image)
-    // CV story arc issues only return id/name/url — we need to call /api/issues/?filter=id:X|Y|Z
-    elements.vineLookupStatus.innerHTML = `<span class="spinner"></span> Fetching issue details (${issueStubs.length} issues)...`;
+    // Step 2: batch-fetch full issue details
+    elements.vineLookupStatus.innerHTML = `<span class="spinner"></span> Fetching issue details (${issueStubs.length} issues)…`;
     const issueIds = issueStubs.map(i => i.id).filter(Boolean);
     const fullIssues = [];
-    const batchSize = 50; // CV allows up to 100 per page
+    const batchSize = 50;
     for (let i = 0; i < issueIds.length; i += batchSize) {
       const batch = issueIds.slice(i, i + batchSize);
       try {
@@ -2656,41 +2777,29 @@ async function importComicVineArc(arc) {
           limit: String(batchSize),
           offset: "0"
         });
-        const batchResults = Array.isArray(batchData?.results) ? batchData.results : [];
-        fullIssues.push(...batchResults);
-      } catch (e) {
-        // If batch fetch fails, fall back to stubs for this batch
+        fullIssues.push(...(Array.isArray(batchData?.results) ? batchData.results : []));
+      } catch {
         fullIssues.push(...issueStubs.slice(i, i + batchSize));
       }
     }
 
-    // Sort fetched issues to match original story arc order (CV arc order ≠ filter result order)
+    // Preserve CV arc order (filter results come back unordered)
     const issueById = new Map(fullIssues.map(i => [i.id, i]));
     const orderedIssues = issueStubs.map(stub => issueById.get(stub.id) || stub);
 
-    // Step 3: build issue title strings and cache cover images
+    // Build issue titles + covers
     const storyId = `vine-${detail.id || arc.id}`;
     const importedIssues = [];
-    const coversToCache = {}; // index → cover object, applied after save
-
+    const coversToCache = {};
     orderedIssues.forEach((issue, index) => {
       const volumeName = issue.volume?.name || detail.name || arc.name || "Issue";
       const issueNumber = issue.issue_number ? ` #${issue.issue_number}` : "";
       const title = `${volumeName}${issueNumber}`.trim();
       if (!title) return;
       importedIssues.push(title);
-
-      // Cache the cover URL directly from the API response
       const rawImg = issue.image?.small_url || issue.image?.medium_url || issue.image?.icon_url || "";
       const imgUrl = rawImg.replace(/^http:\/\//, "https://");
-      if (imgUrl) {
-        coversToCache[index] = {
-          status: "loaded",
-          name: title,
-          image: imgUrl,
-          url: issue.site_detail_url || ""
-        };
-      }
+      if (imgUrl) coversToCache[index] = { status: "loaded", name: title, image: imgUrl, url: issue.site_detail_url || "", source: "comicvine" };
     });
 
     if (!importedIssues.length) {
@@ -2698,45 +2807,112 @@ async function importComicVineArc(arc) {
       return;
     }
 
-    const importedStory = {
-      id: storyId,
-      title: detail.name || arc.name || "Comic Vine Story Arc",
-      publisher: publisherKey(detail.publisher?.name || arc.publisher?.name || "custom"),
-      years: "Comic Vine",
-      note: `Imported from Comic Vine. ${importedIssues.length} issues.`,
+    // Check if cover dates are already in the expected (ascending) order
+    const dates = orderedIssues.map(i => i.cover_date || "").filter(Boolean);
+    const sorted = [...dates].sort();
+    const outOfOrder = dates.length > 1 && JSON.stringify(dates) !== JSON.stringify(sorted);
+
+    // Show preview for user to confirm
+    showArcImportPreview({
+      storyId,
+      arcName: detail.name || arc.name || "Comic Vine Story Arc",
+      publisher: detail.publisher?.name || arc.publisher?.name || "",
       sourceUrl: detail.site_detail_url || arc.site_detail_url || "",
-      issues: importedIssues
-    };
+      orderedIssues,
+      importedIssues,
+      coversToCache,
+      outOfOrder
+    });
 
-    const existingIndex = state.customStorylines.findIndex((story) => story.id === storyId);
-    if (existingIndex >= 0) {
-      state.customStorylines[existingIndex] = importedStory;
-    } else {
-      state.customStorylines.push(importedStory);
-    }
-
-    // Cache all cover images we received at import time
-    if (!state.covers[storyId]) state.covers[storyId] = {};
-    Object.assign(state.covers[storyId], coversToCache);
-    backfillCollectionCovers();
-
-    state.selectedId = storyId;
-    state.activePage = "reader";
-    saveState();
-    saveToServer();
-    render();
-    renderSelectedStory();
-    const coverCount = Object.keys(coversToCache).length;
-    elements.vineLookupStatus.textContent = `${importedStory.title} imported with ${importedIssues.length} issues (${coverCount} covers loaded).`;
-    autoSyncMylarForStory(storyId);
-  } catch (error) {
+    elements.vineLookupStatus.textContent = `Preview ready — check the reading order below, then confirm.`;
+  } catch {
     elements.vineLookupStatus.textContent = "Could not import that Comic Vine story arc.";
   } finally {
-    if (importButton) {
-      importButton.classList.remove("loading");
-      importButton.disabled = false;
-    }
+    if (importButton) { importButton.classList.remove("loading"); importButton.disabled = false; }
   }
+}
+
+function showArcImportPreview({ storyId, arcName, publisher, sourceUrl, orderedIssues, importedIssues, coversToCache, outOfOrder }) {
+  const overlay = document.querySelector("#arcPreviewOverlay");
+  const content = document.querySelector("#arcPreviewContent");
+
+  const orderNote = outOfOrder
+    ? `⚠️ Cover dates suggest some issues may be out of publication order. Review the list below before confirming.`
+    : `✓ Issue order matches publication dates from Comic Vine.`;
+
+  const listHtml = importedIssues.map((title, i) => {
+    const issue = orderedIssues[i] || {};
+    const imgUrl = coversToCache[i]?.image || "";
+    const date = issue.cover_date ? `<span class="issue-date">${escapeHtml(issue.cover_date)}</span>` : "";
+    return `
+      <li class="arc-preview-issue">
+        <span class="issue-num">${i + 1}</span>
+        ${imgUrl ? `<img src="${escapeHtml(imgUrl)}" alt="" />` : `<span style="width:40px;height:56px;background:var(--line);border-radius:3px;display:block"></span>`}
+        <span>${escapeHtml(title)}</span>
+        ${date}
+      </li>`;
+  }).join("");
+
+  content.innerHTML = `
+    <h2 style="margin:0 0 4px">${escapeHtml(arcName)}</h2>
+    ${publisher ? `<p class="muted" style="margin:0 0 8px">${escapeHtml(publisher)}</p>` : ""}
+    <p class="arc-preview-order-note">${orderNote}</p>
+    <p style="margin:16px 0 0;font-size:0.85rem;opacity:0.7">${importedIssues.length} issues — scroll to review the full order</p>
+    <ul class="arc-preview-issue-list">${listHtml}</ul>
+  `;
+
+  overlay.classList.remove("hidden");
+
+  const confirm = document.querySelector("#arcPreviewConfirm");
+  const cancel = document.querySelector("#arcPreviewCancel");
+  const close = document.querySelector("#arcPreviewClose");
+
+  const doClose = () => overlay.classList.add("hidden");
+
+  // Replace buttons to clear old listeners
+  const newConfirm = confirm.cloneNode(true);
+  const newCancel = cancel.cloneNode(true);
+  confirm.replaceWith(newConfirm);
+  cancel.replaceWith(newCancel);
+
+  newCancel.addEventListener("click", doClose);
+  close.onclick = doClose;
+  overlay.addEventListener("click", e => { if (e.target === overlay) doClose(); }, { once: true });
+
+  newConfirm.addEventListener("click", () => {
+    doClose();
+    finalizeArcImport({ storyId, arcName, publisher, sourceUrl, importedIssues, coversToCache });
+  });
+}
+
+function finalizeArcImport({ storyId, arcName, publisher, sourceUrl, importedIssues, coversToCache }) {
+  const importedStory = {
+    id: storyId,
+    title: arcName,
+    publisher: publisherKey(publisher || "custom"),
+    years: "Comic Vine",
+    note: `Imported from Comic Vine. ${importedIssues.length} issues.`,
+    sourceUrl,
+    issues: importedIssues
+  };
+
+  const existingIndex = state.customStorylines.findIndex(s => s.id === storyId);
+  if (existingIndex >= 0) state.customStorylines[existingIndex] = importedStory;
+  else state.customStorylines.push(importedStory);
+
+  if (!state.covers[storyId]) state.covers[storyId] = {};
+  Object.assign(state.covers[storyId], coversToCache);
+  backfillCollectionCovers();
+
+  state.selectedId = storyId;
+  state.activePage = "reader";
+  saveState();
+  saveToServer();
+  render();
+  renderSelectedStory();
+  const coverCount = Object.keys(coversToCache).length;
+  elements.vineLookupStatus.textContent = `${arcName} imported with ${importedIssues.length} issues (${coverCount} covers loaded).`;
+  autoSyncMylarForStory(storyId);
 }
 
 async function importGcdSeries(series) {
@@ -3713,9 +3889,11 @@ elements.searchVineArcs.addEventListener("click", () => {
 });
 
 elements.vineArcSearch.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    searchComicVineArcs();
-  }
+  if (event.key === "Enter") searchComicVineArcs();
+});
+
+elements.creatorSearch?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") searchComicVineArcs();
 });
 
 if (elements.brandLogo) {
