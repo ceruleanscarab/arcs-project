@@ -581,7 +581,7 @@ function backfillCollectionCovers() {
       const cover = coverFor(story.id, index);
       if (!cover?.image) return;
       const key = normalizeIssueKey(issue);
-      if (state.collection[key] && !state.collection[key].cover) {
+      if (state.collection[key]) {
         state.collection[key].cover = cover.image;
       }
     });
@@ -655,6 +655,7 @@ function renderCollection() {
       setCollectionRead(entry.title, !entry.read);
       syncCollectionToArcProgress(entry.title, !entry.read);
       saveState();
+      saveToServer();
       renderCollection();
       renderStoryList();
       renderAllStorylines();
@@ -663,6 +664,7 @@ function renderCollection() {
     li.querySelector(".skip").addEventListener("click", () => {
       delete state.collection[key];
       saveState();
+      saveToServer();
       renderCollection();
     });
     // Collection star rating handlers
@@ -672,6 +674,7 @@ function renderCollection() {
         const current = state.collection[key]?.rating || 0;
         state.collection[key].rating = (current === stars) ? 0 : stars;
         saveState();
+        saveToServer();
         renderCollection();
       });
       btn.addEventListener("mouseenter", () => {
@@ -705,8 +708,10 @@ function toggleIssue(storyId, index, key) {
     const story = allStorylines().find(s => s.id === storyId);
     if (story?.issues[index]) {
       const nowRead = !current.read;
+      const cover = coverFor(storyId, index);
+      const meta = { cover: cover?.image || "" };
       setCollectionRead(story.issues[index], nowRead);
-      if (!collectionEntry(story.issues[index])) addToCollection(story.issues[index]);
+      addToCollection(story.issues[index], meta);
     }
   }
   saveState();
@@ -3417,6 +3422,7 @@ elements.loginProfile.addEventListener("click", async () => {
         state.progress = data.profile.data.progress || {};
         state.customStorylines = data.profile.data.customStorylines || [];
         state.covers = data.profile.data.covers || {};
+        if (data.profile.data.collection) state.collection = data.profile.data.collection;
         state.komgaMatches = data.profile.data.komgaMatches || {};
         state.mylarMatches = data.profile.data.mylarMatches || {};
         backfillCollectionCovers();
@@ -3471,6 +3477,7 @@ function buildServerPayload() {
     progress: state.progress,
     customStorylines: state.customStorylines,
     covers: state.covers,
+    collection: state.collection,
     komgaMatches: state.komgaMatches,
     mylarMatches: state.mylarMatches,
     selectedId: state.selectedId,
