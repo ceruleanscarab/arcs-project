@@ -852,11 +852,12 @@ async function findComicVineCover(issue) {
     }
 
     const imageUrl = (match.image.small_url || match.image.medium_url || match.image.icon_url || "").replace(/^http:\/\//, "https://");
-    
+
     // Check image cache
     if (state.imageCache[imageUrl]) {
       return {
         status: "loaded",
+        source: "comicvine",
         name: [match.volume?.name, match.issue_number ? `#${match.issue_number}` : "", match.name].filter(Boolean).join(" "),
         image: state.imageCache[imageUrl],
         url: match.site_detail_url
@@ -865,6 +866,7 @@ async function findComicVineCover(issue) {
 
     return {
       status: "loaded",
+      source: "comicvine",
       name: [match.volume?.name, match.issue_number ? `#${match.issue_number}` : "", match.name].filter(Boolean).join(" "),
       image: imageUrl,
       url: match.site_detail_url
@@ -995,6 +997,7 @@ function openIssueDetail(issueTitle, index, storyId) {
 }
 
 async function findPriorityCover(issue) {
+  // Comic Vine is always the primary source for covers
   if (state.comicVineKey.trim()) {
     const comicVineCover = await findComicVineCover(issue);
     if (comicVineCover?.status === "loaded" && comicVineCover.image) {
@@ -1002,6 +1005,7 @@ async function findPriorityCover(issue) {
     }
   }
 
+  // Fallback sources only used when Comic Vine doesn't find the issue
   const gcdCover = await findGcdCover(issue);
   if (gcdCover?.status === "loaded" && gcdCover.image) {
     return gcdCover;
@@ -1198,7 +1202,9 @@ async function loadCoversForSelectedStory() {
   elements.apiStatus.innerHTML = `<span class="spinner"></span> Loading covers from ${dataSourceName} for ${story.title}...`;
 
   for (let index = 0; index < story.issues.length; index += 1) {
-    if (coverFor(story.id, index)?.image) continue;
+    // Skip only if we already have a Comic Vine cover — always re-fetch non-CV covers
+    const existing = coverFor(story.id, index);
+    if (existing?.image && existing?.source === "comicvine") continue;
     elements.apiStatus.innerHTML = `<span class="spinner"></span> Loading cover ${index + 1} of ${story.issues.length}...`;
     try {
       const cover = await findPriorityCover(story.issues[index]);
