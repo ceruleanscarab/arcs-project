@@ -14,6 +14,7 @@ COPY styles.css ./
 COPY manifest.json ./
 COPY sw.js ./
 COPY icons/ ./icons/
+COPY avatars/ ./avatars/
 COPY scripts/ ./scripts/
 # Copy logo if it exists
 COPY arcs-logo.jpg* ./

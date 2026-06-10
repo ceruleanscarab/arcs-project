@@ -2957,13 +2957,18 @@ function render() {
     elements.profileSyncName.value = state.profile?.syncName || "";
   }
   if (elements.profileAvatar) {
-    elements.profileAvatar.textContent = state.profile?.avatar || "📚";
+    const avatar = state.profile?.avatar || "avatars/Doom-6.png";
+    if (avatar.includes('/') || avatar.endsWith('.png') || avatar.endsWith('.jpg')) {
+      elements.profileAvatar.innerHTML = `<img src="${avatar}" alt="Profile avatar" />`;
+    } else {
+      elements.profileAvatar.textContent = avatar;
+    }
   }
   
   // Update avatar selection
   if (elements.avatarSelector) {
     document.querySelectorAll(".avatar-option").forEach((option) => {
-      option.classList.toggle("active", option.dataset.avatar === (state.profile?.avatar || "📚"));
+      option.classList.toggle("active", option.dataset.avatar === (state.profile?.avatar || "avatars/Doom-6.png"));
     });
   }
   
@@ -3279,7 +3284,7 @@ if (elements.saveProfile) {
       email: elements.profileEmail.value.trim(),
       publisher: elements.profilePublisher.value,
       syncName: elements.profileSyncName.value.trim(),
-      avatar: state.profile?.avatar || "📚"
+      avatar: state.profile?.avatar || "avatars/Doom-6.png"
     };
     // Automatically save current progress when profile is created/updated
     saveState();
@@ -3314,7 +3319,7 @@ elements.registerProfile.addEventListener("click", async () => {
     const response = await fetch(`${window.location.origin}/api/profile/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, publisher, avatar: state.profile?.avatar || "📚" })
+      body: JSON.stringify({ name, email, password, publisher, avatar: state.profile?.avatar || "avatars/Doom-6.png" })
     });
     
     const data = await response.json();
@@ -3325,7 +3330,7 @@ elements.registerProfile.addEventListener("click", async () => {
         email,
         publisher,
         syncName: data.syncName,
-        avatar: state.profile?.avatar || "📚"
+        avatar: state.profile?.avatar || "avatars/Doom-6.png"
       };
       state.isAuthenticated = true;
       state.sessionEmail = email;
