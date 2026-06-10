@@ -10,3 +10,6 @@ Thumbs.db
 
 # Railway / deployment
 .railway/
+
+# Claude Code local settings
+.claude/
