@@ -1207,6 +1207,7 @@ button.loading::after {
   }
 }
 
+/* ── Tablet (≤880px) ─────────────────────────────────────────────────────── */
 @media (max-width: 880px) {
   .app-shell,
   .overview {
@@ -1224,18 +1225,178 @@ button.loading::after {
   }
 }
 
-@media (max-width: 560px) {
+/* ── Mobile (≤600px) ─────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  /* Sidebar: compact header, horizontal nav */
   .sidebar {
-    padding: 18px;
+    padding: 12px 14px;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
   }
 
-  .side-actions,
+  .brand h1 { font-size: 1.4rem; }
+  .brand p  { display: none; }
+
+  /* Stack page tabs 2×2 */
+  .page-tabs {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .page-tab { min-height: 40px; font-size: 0.82rem; }
+
+  /* Collapse side-actions to 1 col */
+  .side-actions { grid-template-columns: 1fr; }
+
+  /* Search box full-width */
+  .search-box { width: 100%; }
+
+  /* Story list — smaller cards */
+  .story-card {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  /* Content area */
+  .content { padding: 12px; }
+
+  /* Overview section */
+  .overview {
+    grid-template-columns: 1fr;
+    padding: 14px;
+    gap: 8px;
+  }
+  .overview h2 { font-size: 1.2rem; }
+
+  /* Reader panel */
+  .reader-panel { padding: 0; }
+
+  /* Toolbar */
+  .toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+  .toolbar-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .toolbar-actions button { flex: 1; min-width: 80px; }
+
+  /* Issue list items — 2-row mobile layout */
+  .issue-item {
+    grid-template-columns: 60px 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 8px;
+    min-height: auto;
+    padding: 8px;
+  }
+
+  /* Cover spans both rows */
+  .issue-item .cover-link,
+  .issue-item .cover-placeholder,
+  .issue-item .collection-cover {
+    grid-row: 1 / 3;
+    width: 60px;
+    height: 84px;
+  }
+
+  /* Issue number hidden on mobile */
+  .issue-item .issue-number { display: none; }
+
+  /* Title/note area */
+  .issue-item > span:nth-child(3) { grid-column: 2 / 3; }
+
+  /* Buttons row — collapse to icon-size */
+  .state-button {
+    min-height: 34px;
+    padding: 0 8px;
+    font-size: 0.78rem;
+  }
+
+  /* Collection items */
+  .issue-item.collection-item {
+    grid-template-columns: 60px 1fr auto auto;
+  }
+
+  /* Star rating compact */
+  .star-rating-wrap { flex-wrap: wrap; gap: 2px; }
+  .star { font-size: 0.85rem; padding: 2px; }
+
+  /* Vine lookup */
   .vine-lookup-row,
-  .vine-result,
+  .vine-creator-row {
+    grid-template-columns: 1fr;
+  }
+  .vine-creator-row select { width: 100%; }
+
+  /* Vine results */
+  .vine-result {
+    grid-template-columns: 70px 1fr;
+    grid-template-rows: auto auto;
+  }
+  .vine-result img { grid-row: 1 / 3; }
+  .vine-result button { grid-column: 2; }
+
+  /* Arc preview panel full-screen on mobile */
+  .arc-preview-panel,
+  .issue-detail-panel {
+    width: 100vw;
+    border-left: 0;
+    border-top: 2px solid var(--ink);
+  }
+  .issue-detail-overlay { align-items: flex-end; }
+
+  /* Forms */
   .form-grid,
   .stats-grid {
     grid-template-columns: 1fr;
   }
+
+  /* API panel */
+  .api-key-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .api-key-row input { width: 100%; }
+
+  /* Profile page */
+  .profile-heading { flex-direction: column; gap: 10px; }
+  .sync-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .sync-actions button { flex: 1; min-width: 120px; }
+
+  /* Collection filter chips */
+  .filter-row { gap: 6px; }
+  .chip { min-height: 38px; padding: 0 10px; }
+
+  /* Buttons: bigger touch targets */
+  .primary-action,
+  .secondary-action {
+    min-height: 42px;
+  }
+
+  /* Hide story-list scroll hint */
+  .story-list { padding-bottom: 4px; }
+
+  /* Lookup page creator row */
+  .vine-creator-row { grid-template-columns: 1fr; }
+
+  /* Login screen */
+  .login-container {
+    padding: 24px 18px;
+    border-radius: 12px;
+    width: 95%;
+  }
+  .login-header { margin-bottom: 20px; }
+  .login-header img { width: 60px; height: 60px; }
+  .login-header h1 { font-size: 1.6rem; }
 }
 
 /* Login Screen Styles */
